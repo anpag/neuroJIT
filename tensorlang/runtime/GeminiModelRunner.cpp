@@ -61,10 +61,10 @@ public:
     return 0;
   }
 
-  std::string query(const std::string& prompt) override {
+  std::string query(const std::string& input_code) override {
     if (!valid_) return "(error: no api key)";
 
-    std::cerr << "[GeminiRunner] Sending prompt to Gemini..." << std::endl;
+    std::cerr << "[GeminiRunner] Constructing generic optimization prompt..." << std::endl;
 
     CURL* curl = curl_easy_init();
     std::string response_string;
@@ -76,11 +76,19 @@ public:
       std::cerr << "[GeminiRunner] Using URL: " << url << std::endl;
       std::cerr << "[GeminiRunner] API Key Length: " << apiKey_.length() << std::endl;
       
-      std::string json_payload = R"({
-        "contents": [{
-          "parts": [{"text": "You are a compiler optimization expert. Return an MLIR module containing a function @main_optimized that performs a Tiled Matrix Multiplication (64x64 tiling) using scf.for. IMPORTANT: Do NOT use memref.subview. Use explicit index arithmetic for memref.load and memref.store (e.g. A[i + ii, k + kk]). The function should take no arguments, allocate 256x256xf32 memrefs A, B, C, initialize them (A=1.0, B=2.0, C=0.0), compute C = A * B, and return 0 (i32). Output ONLY the MLIR code inside a module block. No markdown backticks."}]
-        }]
-      })";
+      // Construct the dynamic prompt
+      std::string system_instruction = "You are an MLIR compiler engineer. Optimize the following MLIR code for CPU execution. Use tiling, loop unrolling, or replace generic loops with linalg operations where appropriate. IMPORTANT: Return ONLY the MLIR code inside a module. Do NOT use memref.subview (use explicit index arithmetic). Rename the optimized function to @main_optimized.";
+      
+      // Escape for JSON
+      std::string escaped_code = "";
+      for(char c : input_code) {
+        if (c == '"') escaped_code += "\\\"";
+        else if (c == '\n') escaped_code += "\\n";
+        else if (c == '\\') escaped_code += "\\\\";
+        else escaped_code += c;
+      }
+
+      std::string json_payload = "{\"contents\":[{\"parts\":[{\"text\":\"" + system_instruction + "\\n\\nCODE TO OPTIMIZE:\\n" + escaped_code + "\"}]}]}";
 
       struct curl_slist* headers = NULL;
       headers = curl_slist_append(headers, "Content-Type: application/json");

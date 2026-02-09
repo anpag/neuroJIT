@@ -72,26 +72,6 @@ int main(int argc, char **argv) {
   if (!module)
     return 1;
 
-#include <fstream>
-#include <cstdlib>
-
-// ... existing includes ...
-
-static bool hasApiKey() {
-  if (std::getenv("GEMINI_API_KEY")) return true;
-  std::ifstream envFile(".env");
-  if (envFile.is_open()) {
-    std::string line;
-    while (std::getline(envFile, line)) {
-      if (line.find("GEMINI_API_KEY=") == 0) return true;
-    }
-  }
-  return false;
-}
-
-int main(int argc, char **argv) {
-  // ... existing code ...
-
   std::string ir;
   llvm::raw_string_ostream os(ir);
   module->print(os);
