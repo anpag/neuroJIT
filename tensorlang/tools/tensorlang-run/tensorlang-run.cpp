@@ -97,11 +97,11 @@ int main(int argc, char **argv) {
   module->print(os);
   mlir::tensorlang::JitContext::getInstance().setModuleIR(ir);
   
-  std::string runnerType = hasApiKey() ? "gemini" : "mock";
-  llvm::outs() << "[NeuroJIT] Using Runner: " << runnerType << "\n";
+  // Default to Gemini as requested
+  llvm::outs() << "[NeuroJIT] Using Runner: gemini\n";
   
   mlir::tensorlang::JitContext::getInstance().setModelRunner(
-      mlir::tensorlang::ModelRunner::create(runnerType));
+      mlir::tensorlang::ModelRunner::create("gemini"));
 
   // Create JIT Runner
   auto runnerOrError = JitRunner::create();
