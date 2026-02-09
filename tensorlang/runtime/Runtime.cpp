@@ -35,16 +35,25 @@ char* tensorlang_get_ir() {
 
 char* tensorlang_query_model(const char* prompt) {
   auto* runner = mlir::tensorlang::JitContext::getInstance().getModelRunner();
-  if (!runner) return nullptr;
+  if (!runner) {
+    llvm::errs() << "[Runtime] Error: ModelRunner is null.\n";
+    return nullptr;
+  }
   
   std::string response = runner->query(prompt);
+  llvm::errs() << "[Runtime] Model returned " << response.length() << " bytes.\n";
+  
   char* c_str = new char[response.length() + 1];
   std::strcpy(c_str, response.c_str());
   return c_str;
 }
 
-// TODO: Implement compile
 int tensorlang_compile(const char* ir_string) {
+  if (!ir_string) {
+    llvm::errs() << "[Runtime] Error: ir_string is NULL in tensorlang_compile.\n";
+    return -1;
+  }
+
   auto* runner = mlir::tensorlang::JitContext::getInstance().getRunner();
   if (!runner) return -1;
   

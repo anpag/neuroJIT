@@ -4,12 +4,7 @@
 namespace mlir {
 namespace tensorlang {
 
-std::unique_ptr<ModelRunner> ModelRunner::create(const std::string& type) {
-  if (type == "mock") {
-    return std::make_unique<MockModelRunner>();
-  }
-  return nullptr;
-}
+// std::unique_ptr<ModelRunner> ModelRunner::create(const std::string& type) { ... } moved to GeminiModelRunner.cpp
 
 int MockModelRunner::load(const std::string& modelPath) {
   std::cout << "[MockModelRunner] Loading model from: " << modelPath << std::endl;

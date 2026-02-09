@@ -72,12 +72,36 @@ int main(int argc, char **argv) {
   if (!module)
     return 1;
 
+#include <fstream>
+#include <cstdlib>
+
+// ... existing includes ...
+
+static bool hasApiKey() {
+  if (std::getenv("GEMINI_API_KEY")) return true;
+  std::ifstream envFile(".env");
+  if (envFile.is_open()) {
+    std::string line;
+    while (std::getline(envFile, line)) {
+      if (line.find("GEMINI_API_KEY=") == 0) return true;
+    }
+  }
+  return false;
+}
+
+int main(int argc, char **argv) {
+  // ... existing code ...
+
   std::string ir;
   llvm::raw_string_ostream os(ir);
   module->print(os);
   mlir::tensorlang::JitContext::getInstance().setModuleIR(ir);
+  
+  std::string runnerType = hasApiKey() ? "gemini" : "mock";
+  llvm::outs() << "[NeuroJIT] Using Runner: " << runnerType << "\n";
+  
   mlir::tensorlang::JitContext::getInstance().setModelRunner(
-      mlir::tensorlang::ModelRunner::create("mock"));
+      mlir::tensorlang::ModelRunner::create(runnerType));
 
   // Create JIT Runner
   auto runnerOrError = JitRunner::create();
