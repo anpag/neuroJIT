@@ -1,0 +1,21 @@
+# Build directories
+build/
+deps/
+.ninja_deps
+.ninja_log
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.cmake
+Makefile
+
+# Generated files
+*.log
+*.so
+*.a
+*.o
+*.d
+*.inc
+
+# OS specific
+.DS_Store
