@@ -5,6 +5,8 @@
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include <thread>
+#include <algorithm>
 
 extern "C" {
 
@@ -75,6 +77,72 @@ void* tensorlang_get_symbol_address(const char* name) {
     return nullptr;
   }
   return *symOrErr;
+}
+
+void* tensorlang_get_current_impl(const char* default_name) {
+  auto& ctx = mlir::tensorlang::JitContext::getInstance();
+  
+  // 1. Check if optimized version exists (Atomic Load Acquire)
+  void* optimized = ctx.getOptimizedFunction();
+  if (optimized) {
+    return optimized;
+  }
+  
+  // 2. Fallback to default
+  return tensorlang_get_symbol_address(default_name);
+}
+
+void tensorlang_optimize_async(const char* prompt, const char* target_name) {
+  auto& ctx = mlir::tensorlang::JitContext::getInstance();
+  
+  // 1. Check if already optimizing (CAS)
+  if (!ctx.tryStartOptimization()) {
+    // Already optimizing, ignore request
+    return;
+  }
+  
+  std::string promptStr = prompt;
+  std::string targetNameStr = target_name;
+  
+  // 2. Spawn detached thread
+  std::thread([promptStr, targetNameStr]() {
+    llvm::errs() << "[Async] Starting optimization thread...\n";
+    
+    // We cannot capture ctx ref safely if thread outlives main? 
+    // JitContext is singleton static, so it should be fine until exit.
+    auto& ctx = mlir::tensorlang::JitContext::getInstance();
+    
+    // A. Query Model
+    char* ir = tensorlang_query_model(promptStr.c_str());
+    if (!ir) {
+      llvm::errs() << "[Async] Query failed.\n";
+      ctx.finishOptimization();
+      return;
+    }
+    
+    // B. Compile
+    // Note: Compile might not be thread safe if LLVMContext isn't handled right. 
+    // But we fixed compileString to use local context.
+    if (tensorlang_compile(ir) != 0) {
+      llvm::errs() << "[Async] Compilation failed.\n";
+      delete[] ir;
+      ctx.finishOptimization();
+      return;
+    }
+    delete[] ir;
+    
+    // C. Lookup new symbol
+    void* fnPtr = tensorlang_get_symbol_address(targetNameStr.c_str());
+    if (fnPtr) {
+      llvm::errs() << "[Async] Hot-swap successful! New implementation ready.\n";
+      // D. Atomically update (Atomic Store Release)
+      ctx.setOptimizedFunction(fnPtr);
+    } else {
+      llvm::errs() << "[Async] Failed to find target symbol: " << targetNameStr << "\n";
+    }
+    
+    ctx.finishOptimization();
+  }).detach();
 }
 
 } // extern "C"

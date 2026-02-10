@@ -28,6 +28,17 @@ char* tensorlang_query_model(const char* prompt);
 /// Returns 0 on success, non-zero on error.
 int tensorlang_compile(const char* ir_string);
 
+/// Returns the address of a symbol in the JIT.
+void* tensorlang_get_symbol_address(const char* name);
+
+/// Returns the current implementation of a function.
+/// If an optimized version is available, returns it.
+/// Otherwise, looks up 'default_name' and returns that.
+void* tensorlang_get_current_impl(const char* default_name);
+
+/// Starts a background thread to optimize code.
+void tensorlang_optimize_async(const char* prompt, const char* target_name);
+
 } // extern "C"
 
 #endif // TENSORLANG_RUNTIME_RUNTIME_H

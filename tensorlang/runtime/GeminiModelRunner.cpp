@@ -77,7 +77,7 @@ public:
       std::cerr << "[GeminiRunner] API Key Length: " << apiKey_.length() << std::endl;
       
       // Construct the dynamic prompt
-      std::string system_instruction = "You are an MLIR compiler engineer. Optimize the following MLIR code for CPU execution. Use tiling, loop unrolling, or replace generic loops with linalg operations where appropriate. IMPORTANT: Return ONLY the MLIR code inside a module. Do NOT use memref.subview (use explicit index arithmetic). Rename the optimized function to @main_optimized.";
+      std::string system_instruction = "You are an MLIR compiler engineer. Optimize the following MLIR code. Return ONLY the optimized MLIR code inside a module.";
       
       // Escape for JSON
       std::string escaped_code = "";
@@ -157,6 +157,13 @@ public:
         if (md_end != std::string::npos) code = code.substr(0, md_end);
     }
     // ... generic markdown cleanup ...
+    
+    // Sanitize semicolons (Gemini sometimes uses them as separators)
+    for (size_t i = 0; i < code.length(); ++i) {
+        if (code[i] == ';') {
+            code[i] = '\n';
+        }
+    }
     
     std::cerr << "[GeminiRunner] Parsed Code Length: " << code.length() << std::endl;
     return code;

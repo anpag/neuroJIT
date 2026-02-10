@@ -5,6 +5,7 @@
 #include <string>
 #include <functional>
 #include <memory>
+#include <atomic>
 
 namespace mlir {
 namespace tensorlang {
@@ -26,11 +27,22 @@ public:
   void setModuleIR(const std::string& ir);
   std::string getModuleIR() const;
 
+  // Async Hot-Swap State
+  void setOptimizedFunction(void* fnPtr);
+  void* getOptimizedFunction() const;
+  
+  /// Tries to set isOptimizing to true. Returns true if successful (lock acquired).
+  bool tryStartOptimization();
+  void finishOptimization();
+
 private:
   JitContext() = default;
   JitRunner* runner = nullptr;
   std::unique_ptr<ModelRunner> modelRunner;
   std::string currentIR;
+  
+  std::atomic<void*> optimizedFunctionPtr{nullptr};
+  std::atomic<bool> isOptimizing{false};
 };
 
 } // namespace tensorlang
