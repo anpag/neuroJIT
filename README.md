@@ -1,10 +1,10 @@
-# NeuroJIT 🧠⚡️
+# NeuroJIT
 
 **A self-optimizing compiler that literally asks an AI "how do I make this faster?" while running.**
 
 ---
 
-## ⚡️ TL;DR: What is this?
+## TL;DR: What is this?
 **Imagine a computer program that can fix itself when it crashes and speed itself up when it's slow—by talking to an AI.**
 
 Usually, code is static: once a programmer writes it, it never changes. **NeuroJIT** changes that. It's a "Neurosymbolic" compiler.
@@ -34,7 +34,7 @@ And then—without restarting—compile that new code and hot-swap to it?
 The runtime detects "hot" functions, sends their IR to Gemini, and asks for architecture-specific optimizations (Tiling, Vectorization, Loop Unrolling). It then hot-swaps the naive implementation with the AI's "genius" version.
 *   *See `WALKTHROUGH.md` for the performance traces.*
 
-### 2. Self-Healing Systems 🚑
+### 2. Self-Healing Systems
 What if the code doesn't just run slowly, but **crashes**? 
 NeuroJIT can catch violations of its own rules mid-flight. Instead of crashing, the compiler pauses, analyzes the "crash" state, and asks Gemini to rewrite the logic to prevent the failure.
 *   **Demo:** We built a "Lunar Lander" simulation that is programmed to crash. The compiler catches it, writes a Pilot Controller on the fly, and lands it safely.

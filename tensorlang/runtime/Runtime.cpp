@@ -143,7 +143,7 @@ void tensorlang_assert_fail(int64_t loc) {
     llvm::errs() << "[System 2] Self-healing attempted but failed to prevent crash. Manual intervention required.\n";
     exit(1);
   }
-  llvm::errs() << "[System 2] 🚨 CRASH IMMINENT! Violation detected.\n";
+  llvm::errs() << "[System 2] CRASH IMMINENT! Violation detected.\n";
   
   char* ir = tensorlang_get_ir();
   if (!ir) {

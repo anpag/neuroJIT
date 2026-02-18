@@ -43,7 +43,7 @@ At `Alt: -1.82m` and `Vel: -20.69m/s`, the `tensorlang.assert` fails. The runtim
 
 **System Log:**
 ```text
-[System 2] 🚨 CRASH IMMINENT! Violation detected.
+[System 2] CRASH IMMINENT! Violation detected.
 [System 2] Querying Gemini for a fix...
 ```
 
