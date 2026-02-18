@@ -9,8 +9,8 @@
 
 Usually, code is static: once a programmer writes it, it never changes. **NeuroJIT** changes that. It's a "Neurosymbolic" compiler.
 
-*   **"Symbolic" (The Rules):** We built our own language (**TensorLang**) that has strict, logical rules. It’s great at math but doesn't know how to optimize itself for every computer chip in the world.
-*   **"Neural" (The Intuition):** We connected this language to an AI (**Gemini**). When the program runs, it "looks" at its own code, realizes it could be better, and asks the AI to rewrite it on the fly.
+*   **"Symbolic":** These are the rules. We built our own language (**TensorLang**) that follows strict, logical principles. It’s great at math but doesn't know how to optimize itself for every computer chip in the world.
+*   **"Neural":** This is the intuition. We connected the language to an AI (**Gemini**). When the program runs, it "looks" at its own code, realizes it could be better, and asks the AI to rewrite it on the fly.
 
 **In short:** It's software that evolves while it's running. It's half-robot, half-brain.
 
