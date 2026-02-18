@@ -42,19 +42,19 @@ You need LLVM 19 and Ninja installed.
 
 ### 1. Build the Project
 ```bash
-./build_all.sh
+./scripts/build_all.sh
 ```
 
 ### 2. Run the Self-Healing Demo
 This runs the "NeuroLander" simulation. It *will* crash, and then it *will* fix itself.
 ```bash
-./run_lander.sh
+./scripts/run_lander.sh
 ```
 
 ### 3. Run the Optimization Demo
 This runs a Matrix Multiplication benchmark.
 ```bash
-./run_example.sh
+./scripts/run_example.sh
 ```
 
 ## Credits
