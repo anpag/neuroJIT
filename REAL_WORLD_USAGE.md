@@ -73,7 +73,20 @@ JitContext::getInstance().setModelRunner(
 );
 ```
 
-## 4. Why This Matters
+## 4. Self-Healing Systems: Beyond Optimization
+
+In safety-critical environments (drones, autonomous vehicles, industrial robots), a logical error isn't just a performance bug—it's a crash. 
+
+**NeuroJIT** introduces "Software-in-the-Loop" healing:
+1.  **Define Assertions:** Use `tensorlang.assert` to define physical or logical boundaries (e.g., *"Velocity must be < 5m/s at Alt 0"*).
+2.  **Runtime Intervention:** If an assertion fails, the runtime pauses execution and extracts the failing logic.
+3.  **Autonomous Fix:** The LLM receives the state and the failing code. It generates a patch (e.g., a PID controller) to satisfy the constraint.
+4.  **Hot-Swap:** The system resumes with the corrected behavior.
+
+See `SELF_HEALING_WALKTHROUGH.md` for a complete live-trace of this in action.
+
+## 5. Why This Matters
 *   **Hardware Agnostic:** You don't need to hand-tune kernels for every new chip (TPU v5, H100, M3). Gemini does the porting for you.
 *   **Safety Net:** Our `VerifyLinearityPass` ensures the AI-generated code manages memory correctly (no leaks), even if the AI hallucinates.
+*   **Resilient Systems:** Code that can recognize its own failure and "learn" to fix it mid-flight.
 *   **Complexity Abstraction:** Developers write high-level logic; the "ghost in the machine" handles the bit-twiddling.

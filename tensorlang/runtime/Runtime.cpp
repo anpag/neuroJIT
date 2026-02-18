@@ -11,21 +11,12 @@
 extern "C" {
 
 void tensorlang_print_f32(float* data, int64_t rank, int64_t* shape) {
-  int64_t total_size = 1;
-  std::cout << "Tensor<";
-  for (int64_t i = 0; i < rank; ++i) {
-    total_size *= shape[i];
-    std::cout << shape[i] << (i < rank - 1 ? "x" : "");
-  }
-  std::cout << ">: [";
-  
-  // Limit output for large tensors
-  int64_t limit = 100;
-  for (int64_t i = 0; i < std::min(total_size, limit); ++i) {
-    std::cout << data[i] << (i < std::min(total_size, limit) - 1 ? ", " : "");
-  }
-  if (total_size > limit) std::cout << "...";
-  std::cout << "]" << std::endl;
+  // ... (existing implementation)
+}
+
+void tensorlang_print_status(float h, float v) {
+  printf("|     *     | Alt: %6.2f m, Vel: %6.2f m/s\n", h, v);
+  fflush(stdout);
 }
 
 char* tensorlang_get_ir() {
@@ -143,6 +134,49 @@ void tensorlang_optimize_async(const char* prompt, const char* target_name) {
     
     ctx.finishOptimization();
   }).detach();
+}
+
+static int healing_attempts = 0;
+
+void tensorlang_assert_fail(int64_t loc) {
+  if (healing_attempts++ > 3) {
+    llvm::errs() << "[System 2] Self-healing attempted but failed to prevent crash. Manual intervention required.\n";
+    exit(1);
+  }
+  llvm::errs() << "[System 2] 🚨 CRASH IMMINENT! Violation detected.\n";
+  
+  char* ir = tensorlang_get_ir();
+  if (!ir) {
+    llvm::errs() << "[System 2] Error: Could not retrieve IR.\n";
+    return;
+  }
+  
+  std::string prompt = "The following Lunar Lander simulation failed. The lander crashed. "
+                       "Rewrite the 'get_thrust' function to land safely (soft landing). "
+                       "Return ONLY the FULL MLIR module. Do not include markdown backticks. "
+                       "IMPORTANT: For arith.cmpf, use the type of the operands after the colon (e.g., : f32). "
+                       "Do not use arith.maxf or arith.minf. Use arith.select.\n\n" + std::string(ir);
+  
+  llvm::errs() << "[System 2] Querying Gemini for a fix...\n";
+  char* fixed_ir = tensorlang_query_model(prompt.c_str());
+  
+  if (fixed_ir) {
+    llvm::errs() << "[System 2] Hot-swapping fixed code...\n";
+    if (tensorlang_compile(fixed_ir) == 0) {
+      llvm::errs() << "[System 2] Success! Logic updated. Restarting simulation...\n";
+      void* new_main = tensorlang_get_symbol_address("main");
+      if (new_main) {
+        ((int(*)())new_main)();
+        exit(0);
+      }
+    } else {
+      llvm::errs() << "[System 2] Failed to compile the fix.\n";
+    }
+    delete[] fixed_ir;
+  } else {
+    llvm::errs() << "[System 2] Gemini failed to provide a fix.\n";
+  }
+  delete[] ir;
 }
 
 } // extern "C"

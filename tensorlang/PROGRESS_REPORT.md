@@ -60,6 +60,13 @@ Defined in `TensorLang.td` and `TensorLangOps.cpp`.
 *   [x] **Self-Rewrite:** `self_rewrite_demo.mlir` successfully compiles and executes generated code at runtime.
 *   [x] **Full Loop:** Demonstrated `Get IR -> Query -> Compile -> Execute` cycle.
 
+### Phase 4: Self-Healing & Safety (COMPLETE)
+*   [x] **Assert Op:** Implemented `tensorlang.assert` for runtime boundary checks.
+*   [x] **Safety Hook:** Implemented `tensorlang_assert_fail` runtime handler.
+*   [x] **Software-in-the-Loop:** Created the "NeuroLander" simulation to prove autonomous logic repair.
+*   [x] **Hot-Swap Persistence:** Enhanced JIT to allow multiple symbol overrides via unique Dylibs.
+*   [x] **Automatic Restart:** Implemented simulation restart logic upon successful "healing."
+
 ## 5. Conclusion
 The compiler infrastructure is fully functional. It supports:
 1.  **Tensor Math:** Efficient Linalg-based compilation.

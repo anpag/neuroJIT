@@ -4,6 +4,7 @@
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/IR/PatternMatch.h"
@@ -25,8 +26,42 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-// MatMulLowering
+// Lowering Patterns
 //===----------------------------------------------------------------------===//
+
+struct AssertOpLowering : public OpConversionPattern<AssertOp> {
+  using OpConversionPattern<AssertOp>::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(AssertOp op, OpAdaptor adaptor,
+                                ConversionPatternRewriter &rewriter) const override {
+    Location loc = op.getLoc();
+    
+    // We want to call @tensorlang_assert_fail if condition is FALSE.
+    Value condition = adaptor.getCondition();
+    Value trueVal = rewriter.create<arith::ConstantIntOp>(loc, 1, 1);
+    Value notCondition = rewriter.create<arith::XOrIOp>(loc, condition, trueVal);
+
+    rewriter.create<scf::IfOp>(loc, notCondition, [&](OpBuilder &builder, Location loc) {
+      auto module = op->getParentOfType<ModuleOp>();
+      auto assertFailFn = module.lookupSymbol<func::FuncOp>("tensorlang_assert_fail");
+      if (!assertFailFn) {
+        OpBuilder::InsertionGuard guard(builder);
+        builder.setInsertionPointToStart(module.getBody());
+        assertFailFn = builder.create<func::FuncOp>(
+            loc, "tensorlang_assert_fail",
+            builder.getFunctionType({builder.getI64Type()}, {}));
+        assertFailFn.setPrivate();
+      }
+      
+      Value dummyLoc = builder.create<arith::ConstantIntOp>(loc, 0, 64);
+      builder.create<func::CallOp>(loc, assertFailFn, ValueRange{dummyLoc});
+      builder.create<scf::YieldOp>(loc);
+    });
+
+    rewriter.eraseOp(op);
+    return success();
+  }
+};
 
 struct MatMulLowering : public OpConversionPattern<MatMulOp> {
   using OpConversionPattern<MatMulOp>::OpConversionPattern;
@@ -80,7 +115,7 @@ struct ConvertTensorLangToLinalgPass
   StringRef getDescription() const override { return "Lower TensorLang ops to Linalg"; }
 
   void getDependentDialects(DialectRegistry &registry) const override {
-    registry.insert<linalg::LinalgDialect, tensor::TensorDialect, arith::ArithDialect>();
+    registry.insert<linalg::LinalgDialect, tensor::TensorDialect, arith::ArithDialect, scf::SCFDialect>();
   }
 
   void runOnOperation() override {
@@ -90,7 +125,7 @@ struct ConvertTensorLangToLinalgPass
     ConversionTarget target(*context);
     
     // We want to convert to Linalg
-    target.addLegalDialect<linalg::LinalgDialect, tensor::TensorDialect, arith::ArithDialect>();
+    target.addLegalDialect<linalg::LinalgDialect, tensor::TensorDialect, arith::ArithDialect, scf::SCFDialect, func::FuncDialect>();
     
     // FuncOp is legal only if signature is legal
     target.addDynamicallyLegalOp<func::FuncOp>([&](func::FuncOp op) {
@@ -104,9 +139,10 @@ struct ConvertTensorLangToLinalgPass
     // TensorLang ops are illegal
     target.addIllegalOp<MatMulOp>();
     target.addIllegalOp<ConstantOp>();
+    target.addIllegalOp<AssertOp>();
 
     RewritePatternSet patterns(context);
-    patterns.add<MatMulLowering, ConstantOpLowering>(typeConverter, context);
+    patterns.add<MatMulLowering, ConstantOpLowering, AssertOpLowering>(typeConverter, context);
     
     // Add function signature conversion patterns
     populateFunctionOpInterfaceTypeConversionPattern<func::FuncOp>(patterns, typeConverter);

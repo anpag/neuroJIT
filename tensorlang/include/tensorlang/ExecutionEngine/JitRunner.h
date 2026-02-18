@@ -49,6 +49,7 @@ private:
   JitRunner(std::unique_ptr<llvm::orc::LLJIT> jit);
 
   std::unique_ptr<llvm::orc::LLJIT> jit;
+  int dylibCount = 0;
 };
 
 } // namespace tensorlang

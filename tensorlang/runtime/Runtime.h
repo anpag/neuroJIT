@@ -12,6 +12,9 @@ extern "C" {
 /// Prints a float tensor (for debugging).
 void tensorlang_print_f32(float* data, int64_t rank, int64_t* shape);
 
+/// Prints the lander's status (Alt and Vel).
+void tensorlang_print_status(float h, float v);
+
 //===----------------------------------------------------------------------===//
 // Reflection & JIT Operations
 //===----------------------------------------------------------------------===//
@@ -26,6 +29,9 @@ int tensorlang_compile(const char* ir_string);
 
 /// Returns the address of a symbol in the JIT.
 void* tensorlang_get_symbol_address(const char* name);
+
+/// Called when a tensorlang.assert fails.
+void tensorlang_assert_fail(int64_t loc);
 
 } // extern "C"
 

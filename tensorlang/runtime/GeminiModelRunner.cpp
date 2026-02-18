@@ -149,14 +149,26 @@ public:
         return "(error: api failed)";
     }
     
-    // Clean up markdown
-    size_t md_start = code.find("```mlir");
-    if (md_start != std::string::npos) {
-        code = code.substr(md_start + 7);
-        size_t md_end = code.find("```");
-        if (md_end != std::string::npos) code = code.substr(0, md_end);
+    // Clean up markdown and non-MLIR text
+    size_t module_pos = code.find("module");
+    if (module_pos != std::string::npos) {
+        size_t brace_pos = code.find("{", module_pos);
+        if (brace_pos != std::string::npos) {
+            code = code.substr(module_pos);
+            size_t last_brace = code.rfind("}");
+            if (last_brace != std::string::npos) {
+                code = code.substr(0, last_brace + 1);
+            }
+        }
+    } else {
+        // Fallback to markdown cleanup if "module {" not found
+        size_t md_start = code.find("```mlir");
+        if (md_start != std::string::npos) {
+            code = code.substr(md_start + 7);
+            size_t md_end = code.find("```");
+            if (md_end != std::string::npos) code = code.substr(0, md_end);
+        }
     }
-    // ... generic markdown cleanup ...
     
     // Sanitize semicolons (Gemini sometimes uses them as separators)
     for (size_t i = 0; i < code.length(); ++i) {

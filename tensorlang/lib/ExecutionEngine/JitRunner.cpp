@@ -175,7 +175,22 @@ llvm::Error JitRunner::compile(ModuleOp module) {
     return llvm::make_error<llvm::StringError>("Failed to translate MLIR to LLVM IR", llvm::inconvertibleErrorCode());
 
   // 3. Add to JIT
-  return jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(llvmModule), std::move(llvmContext)));
+  auto& ES = jit->getExecutionSession();
+  auto dylibOrErr = ES.createJITDylib("fix_" + std::to_string(dylibCount++));
+  if (!dylibOrErr) return dylibOrErr.takeError();
+  auto& dylib = *dylibOrErr;
+
+  dylib.addGenerator(
+      cantFail(llvm::orc::EPCDynamicLibrarySearchGenerator::GetForTargetProcess(ES)));
+  
+  // Make sure new dylib can see symbols in main dylib
+  dylib.addToLinkOrder(jit->getMainJITDylib());
+  
+  // Update the search order of main dylib to look into the new dylib FIRST
+  // This is how we achieve hot-swapping
+  jit->getMainJITDylib().addToLinkOrder(dylib, llvm::orc::JITDylibLookupFlags::MatchAllSymbols);
+
+  return jit->addIRModule(dylib, llvm::orc::ThreadSafeModule(std::move(llvmModule), std::move(llvmContext)));
 }
 
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"

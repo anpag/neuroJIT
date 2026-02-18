@@ -18,6 +18,18 @@ And then—without restarting—compile that new code and hot-swap to it?
 
 **NeuroJIT** does exactly that.
 
+## Two "Magic" Features
+
+### 1. Autonomous Optimization
+The runtime detects "hot" functions, sends their IR to Gemini, and asks for architecture-specific optimizations (Tiling, Vectorization, Loop Unrolling). It then hot-swaps the naive implementation with the AI's "genius" version.
+*   *See `WALKTHROUGH.md` for the performance traces.*
+
+### 2. Self-Healing Systems (NEW!) 🚑
+What if the code doesn't just run slowly, but **crashes**? 
+NeuroJIT can catch `tensorlang.assert` violations mid-flight. Instead of a segmentation fault, the compiler pauses, analyzes the "crash" state, and asks Gemini to rewrite the logic to prevent the failure.
+*   **Demo:** We built a "Lunar Lander" simulation that is programmed to crash. The compiler catches it, writes a PID controller on the fly, and lands it safely.
+*   *See `SELF_HEALING_WALKTHROUGH.md` for the terminal logs.*
+
 ## How it Works (The "Rube Goldberg" Machine)
 
 1.  **The Language:** We defined `TensorLang` (a tiny MLIR dialect) for tensor math.

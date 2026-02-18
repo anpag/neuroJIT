@@ -106,4 +106,15 @@ def PrintOp : TensorLang_Op<"print", []> {
   let assemblyFormat = "$input attr-dict `:` type($input)";
 }
 
+def AssertOp : TensorLang_Op<"assert", []> {
+  let summary = "Runtime assertion with self-healing capability";
+  let description = [{
+    Asserts that the condition is true. If it fails, the runtime triggers
+    a self-healing mechanism that rewrites the code using an LLM.
+  }];
+
+  let arguments = (ins I1:$condition);
+  let assemblyFormat = "$condition attr-dict";
+}
+
 #endif // TENSORLANG_DIALECT_TD
