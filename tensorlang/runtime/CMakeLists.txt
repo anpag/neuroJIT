@@ -5,11 +5,13 @@ add_library(TensorLangRuntime STATIC
   JitContext.cpp
   ModelRunner.cpp
   GeminiModelRunner.cpp
+  StrategyCache.cpp
 )
 
 target_include_directories(TensorLangRuntime PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_SOURCE_DIR}/include"
+  "${CMAKE_SOURCE_DIR}/deps"
   "${CMAKE_BINARY_DIR}/include"
   ${CURL_INCLUDE_DIRS}
 )

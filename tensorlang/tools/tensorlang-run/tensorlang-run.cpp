@@ -95,6 +95,17 @@ int main(int argc, char **argv) {
   mlir::tensorlang::JitContext::getInstance().registerRunner(runner.get());
 
   // Execute
+  auto& jitCtx = mlir::tensorlang::JitContext::getInstance();
+  if (setjmp(jitCtx.getRecoveryPoint()) != 0) {
+    llvm::errs() << "[NeuroJIT] Recovery point reached. Restarting simulation...\n";
+    auto res = runner->invoke("main");
+    if (!res) {
+      llvm::errs() << "Restart failed: " << llvm::toString(res.takeError()) << "\n";
+      return 1;
+    }
+    return res.get(); // Return the exit code
+  }
+
   if (auto err = runner->run(*module)) {
     llvm::errs() << "Execution failed: " << err << "\n";
     return 1;

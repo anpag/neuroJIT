@@ -51,8 +51,7 @@ int tensorlang_compile(const char* ir_string) {
   if (!runner) return -1;
   
   if (auto err = runner->compileString(ir_string)) {
-    // print error
-    llvm::errs() << "JIT Compilation Failed: " << err << "\n";
+    llvm::errs() << "JIT Compilation Failed: " << llvm::toString(std::move(err)) << "\n";
     return -1;
   }
   return 0; 
@@ -88,22 +87,29 @@ void tensorlang_optimize_async(const char* prompt, const char* target_name) {
   
   // 1. Check if already optimizing (CAS)
   if (!ctx.tryStartOptimization()) {
-    // Already optimizing, ignore request
     return;
   }
   
   std::string promptStr = prompt;
   std::string targetNameStr = target_name;
   
-  // 2. Spawn detached thread
+  // 2. Check Cache
+  std::string cachedIR = ctx.getStrategyCache().lookup(promptStr);
+  if (!cachedIR.empty()) {
+    llvm::errs() << "[Async] Cache hit for optimization (" << targetNameStr << ")!\n";
+    if (tensorlang_compile(cachedIR.c_str()) == 0) {
+      void* fnPtr = tensorlang_get_symbol_address(targetNameStr.c_str());
+      if (fnPtr) ctx.setOptimizedFunction(fnPtr);
+    }
+    ctx.finishOptimization();
+    return;
+  }
+  
+  // 3. Spawn detached thread for network call
   std::thread([promptStr, targetNameStr]() {
-    llvm::errs() << "[Async] Starting optimization thread...\n";
-    
-    // We cannot capture ctx ref safely if thread outlives main? 
-    // JitContext is singleton static, so it should be fine until exit.
+    llvm::errs() << "[Async] Cache miss. Starting optimization thread...\n";
     auto& ctx = mlir::tensorlang::JitContext::getInstance();
     
-    // A. Query Model
     char* ir = tensorlang_query_model(promptStr.c_str());
     if (!ir) {
       llvm::errs() << "[Async] Query failed.\n";
@@ -111,9 +117,9 @@ void tensorlang_optimize_async(const char* prompt, const char* target_name) {
       return;
     }
     
-    // B. Compile
-    // Note: Compile might not be thread safe if LLVMContext isn't handled right. 
-    // But we fixed compileString to use local context.
+    // Cache the result
+    ctx.getStrategyCache().insert(promptStr, ir);
+    
     if (tensorlang_compile(ir) != 0) {
       llvm::errs() << "[Async] Compilation failed.\n";
       delete[] ir;
@@ -122,11 +128,9 @@ void tensorlang_optimize_async(const char* prompt, const char* target_name) {
     }
     delete[] ir;
     
-    // C. Lookup new symbol
     void* fnPtr = tensorlang_get_symbol_address(targetNameStr.c_str());
     if (fnPtr) {
       llvm::errs() << "[Async] Hot-swap successful! New implementation ready.\n";
-      // D. Atomically update (Atomic Store Release)
       ctx.setOptimizedFunction(fnPtr);
     } else {
       llvm::errs() << "[Async] Failed to find target symbol: " << targetNameStr << "\n";
@@ -136,14 +140,15 @@ void tensorlang_optimize_async(const char* prompt, const char* target_name) {
   }).detach();
 }
 
-static int healing_attempts = 0;
-
 void tensorlang_assert_fail(int64_t loc) {
-  if (healing_attempts++ > 3) {
+  auto& ctx = mlir::tensorlang::JitContext::getInstance();
+  ctx.incrementHealingAttempts();
+  
+  if (ctx.getHealingAttempts() > 3) {
     llvm::errs() << "[System 2] Self-healing attempted but failed to prevent crash. Manual intervention required.\n";
     exit(1);
   }
-  llvm::errs() << "[System 2] CRASH IMMINENT! Violation detected.\n";
+  llvm::errs() << "[System 2] CRASH IMMINENT! Violation detected (Attempt " << ctx.getHealingAttempts() << ").\n";
   
   char* ir = tensorlang_get_ir();
   if (!ir) {
@@ -157,18 +162,33 @@ void tensorlang_assert_fail(int64_t loc) {
                        "IMPORTANT: For arith.cmpf, use the type of the operands after the colon (e.g., : f32). "
                        "Do not use arith.maxf or arith.minf. Use arith.select.\n\n" + std::string(ir);
   
-  llvm::errs() << "[System 2] Querying Gemini for a fix...\n";
+  std::string promptStr = prompt;
+  std::string cachedIR = ctx.getStrategyCache().lookup(promptStr);
+
+  if (!cachedIR.empty()) {
+    llvm::errs() << "[System 2] Cache hit! Applying fix immediately...\n";
+    if (tensorlang_compile(cachedIR.c_str()) == 0) {
+      llvm::errs() << "[System 2] Success! Logic updated. Unwinding stack for restart...\n";
+      delete[] ir;
+      std::longjmp(ctx.getRecoveryPoint(), 1);
+    } else {
+      llvm::errs() << "[System 2] Failed to compile cached fix. Proceeding to query...\n";
+    }
+  }
+
+  llvm::errs() << "[System 2] Cache miss. Querying Gemini for a fix...\n";
   char* fixed_ir = tensorlang_query_model(prompt.c_str());
   
   if (fixed_ir) {
     llvm::errs() << "[System 2] Hot-swapping fixed code...\n";
+    ctx.getStrategyCache().insert(promptStr, std::string(fixed_ir));
+
     if (tensorlang_compile(fixed_ir) == 0) {
-      llvm::errs() << "[System 2] Success! Logic updated. Restarting simulation...\n";
-      void* new_main = tensorlang_get_symbol_address("main");
-      if (new_main) {
-        ((int(*)())new_main)();
-        exit(0);
-      }
+      llvm::errs() << "[System 2] Success! Logic updated. Unwinding stack for restart...\n";
+      delete[] ir;
+      delete[] fixed_ir;
+      // UNWIND AND RESTART
+      std::longjmp(ctx.getRecoveryPoint(), 1);
     } else {
       llvm::errs() << "[System 2] Failed to compile the fix.\n";
     }

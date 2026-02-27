@@ -37,7 +37,6 @@ LogicalResult LinearTensorType::verify(function_ref<InFlightDiagnostic()> emitEr
 LogicalResult MatMulOp::verify() {
   auto lhsType = getLhs().getType();
   auto rhsType = getRhs().getType();
-  auto resultType = getResult().getType();
 
   // Helper to get shape and rank
   auto getShape = [](Type t) -> ArrayRef<int64_t> {

@@ -36,6 +36,9 @@
 #include "mlir/Conversion/ReconcileUnrealizedCasts/ReconcileUnrealizedCasts.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/Affine/Passes.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 
 using namespace mlir;
 using namespace mlir::tensorlang;
@@ -228,6 +231,9 @@ llvm::Error JitRunner::compileString(llvm::StringRef source) {
   context.getOrLoadDialect<linalg::LinalgDialect>();
   context.getOrLoadDialect<mlir::scf::SCFDialect>();
   context.getOrLoadDialect<mlir::memref::MemRefDialect>();
+  context.getOrLoadDialect<mlir::vector::VectorDialect>();
+  context.getOrLoadDialect<mlir::affine::AffineDialect>();
+  context.getOrLoadDialect<mlir::math::MathDialect>();
   context.getOrLoadDialect<LLVM::LLVMDialect>();
   
   llvm::SourceMgr sourceMgr;

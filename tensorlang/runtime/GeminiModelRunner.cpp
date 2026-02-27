@@ -7,6 +7,11 @@
 #include <regex>
 #include <curl/curl.h>
 
+#define JSON_NOEXCEPTION 1
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
+
 namespace mlir {
 namespace tensorlang {
 
@@ -64,34 +69,31 @@ public:
   std::string query(const std::string& input_code) override {
     if (!valid_) return "(error: no api key)";
 
-    std::cerr << "[GeminiRunner] Constructing generic optimization prompt..." << std::endl;
+    std::cerr << "[GeminiRunner] Querying model for optimization..." << std::endl;
 
     CURL* curl = curl_easy_init();
     std::string response_string;
     
     if(curl) {
-      // Use 'gemini-2.5-pro' via v1beta endpoint (confirmed working).
-      std::string url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=" + apiKey_;
+      std::string url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
       
-      std::cerr << "[GeminiRunner] Using URL: " << url << std::endl;
-      std::cerr << "[GeminiRunner] API Key Length: " << apiKey_.length() << std::endl;
+      // Construct the dynamic prompt using nlohmann/json for safe escaping
+      std::string system_instruction = "You are an MLIR compiler engineer. Optimize the following MLIR code. Return ONLY the optimized MLIR code inside a module. Do not use semicolons for separators; use newlines. Do not include markdown backticks.";
       
-      // Construct the dynamic prompt
-      std::string system_instruction = "You are an MLIR compiler engineer. Optimize the following MLIR code. Return ONLY the optimized MLIR code inside a module.";
-      
-      // Escape for JSON
-      std::string escaped_code = "";
-      for(char c : input_code) {
-        if (c == '"') escaped_code += "\\\"";
-        else if (c == '\n') escaped_code += "\\n";
-        else if (c == '\\') escaped_code += "\\\\";
-        else escaped_code += c;
-      }
+      json payload = {
+        {"contents", {{
+          {"parts", {{
+            {"text", system_instruction + "\n\nCODE TO OPTIMIZE:\n" + input_code}
+          }}}
+        }}}
+      };
 
-      std::string json_payload = "{\"contents\":[{\"parts\":[{\"text\":\"" + system_instruction + "\\n\\nCODE TO OPTIMIZE:\\n" + escaped_code + "\"}]}]}";
+      std::string json_payload = payload.dump();
 
       struct curl_slist* headers = NULL;
       headers = curl_slist_append(headers, "Content-Type: application/json");
+      std::string auth_header = "X-goog-api-key: " + apiKey_;
+      headers = curl_slist_append(headers, auth_header.c_str());
 
       curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
       curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_payload.c_str());
@@ -108,45 +110,28 @@ public:
       curl_slist_free_all(headers);
     }
 
-    std::cerr << "[GeminiRunner] Raw Response: " << response_string << std::endl;
+    // Parse Response using nlohmann/json (no exceptions)
+    json res_json = json::parse(response_string, nullptr, false);
+    if (res_json.is_discarded()) {
+        std::cerr << "[GeminiRunner] Failed to parse JSON response." << std::endl;
+        return "(error: invalid json)";
+    }
 
     std::string code;
-    size_t text_pos = response_string.find("\"text\": \"");
-    if (text_pos != std::string::npos) {
-        size_t start = text_pos + 9;
-        size_t end = response_string.find("\"", start);
-        std::string raw_code = response_string.substr(start, end - start);
-        
-        // Unescape
-        for (size_t i = 0; i < raw_code.length(); ++i) {
-            if (raw_code[i] == '\\') {
-                if (i + 1 < raw_code.length()) {
-                    if (raw_code[i+1] == 'n') { code += '\n'; i++; }
-                    else if (raw_code[i+1] == '\"') { code += '\"'; i++; }
-                    else if (raw_code[i+1] == '\\') { code += '\\'; i++; }
-                    else if (raw_code[i+1] == 'u' && i + 5 < raw_code.length()) {
-                        // Handle simple unicode escapes like \u003e (>) and \u003c (<)
-                        std::string hex = raw_code.substr(i+2, 4);
-                        int char_code = std::stoi(hex, nullptr, 16);
-                        if (char_code < 128) {
-                            code += (char)char_code;
-                        } else {
-                            // Simple hack for non-ascii: append as is or ignore.
-                            // For MLIR code, we expect mostly ASCII.
-                            // To be safe, we could use a library, but let's just drop high unicode or keep raw.
-                            // Actually, let's just skip it to avoid breaking compilation if it's comment.
-                        }
-                        i += 5;
-                    }
-                    else { code += raw_code[i]; }
-                }
-            } else {
-                code += raw_code[i];
+    if (res_json.contains("candidates") && res_json["candidates"].is_array() && !res_json["candidates"].empty()) {
+        auto& candidate = res_json["candidates"][0];
+        if (candidate.contains("content") && candidate["content"].contains("parts") && 
+            candidate["content"]["parts"].is_array() && !candidate["content"]["parts"].empty()) {
+            auto& part = candidate["content"]["parts"][0];
+            if (part.contains("text") && part["text"].is_string()) {
+                code = part["text"].get<std::string>();
             }
         }
-    } else {
-        std::cerr << "[GeminiRunner] Failed to parse JSON. Check raw response above." << std::endl;
-        return "(error: api failed)";
+    }
+
+    if (code.empty()) {
+        std::cerr << "[GeminiRunner] Empty response or invalid structure from model." << std::endl;
+        return "(error: extraction failed)";
     }
     
     // Clean up markdown and non-MLIR text
@@ -163,21 +148,20 @@ public:
     } else {
         // Fallback to markdown cleanup if "module {" not found
         size_t md_start = code.find("```mlir");
+        if (md_start == std::string::npos) md_start = code.find("```");
+        
         if (md_start != std::string::npos) {
-            code = code.substr(md_start + 7);
+            size_t start_skip = (code.substr(md_start, 7) == "```mlir") ? 7 : 3;
+            code = code.substr(md_start + start_skip);
             size_t md_end = code.find("```");
             if (md_end != std::string::npos) code = code.substr(0, md_end);
         }
     }
     
-    // Sanitize semicolons (Gemini sometimes uses them as separators)
-    for (size_t i = 0; i < code.length(); ++i) {
-        if (code[i] == ';') {
-            code[i] = '\n';
-        }
-    }
+    // Remove trailing whitespace
+    code.erase(code.find_last_not_of(" \n\r\t") + 1);
     
-    std::cerr << "[GeminiRunner] Parsed Code Length: " << code.length() << std::endl;
+    std::cerr << "[GeminiRunner] Successfully parsed " << code.length() << " bytes of MLIR." << std::endl;
     return code;
   }
 
