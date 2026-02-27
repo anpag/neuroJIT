@@ -1,63 +1,55 @@
 # NeuroJIT
 
-**A self-optimizing compiler that literally asks an AI "how do I make this faster?" while running.**
+**A self-optimizing compiler that leverages AI to evolve code at runtime.**
+
+NeuroJIT is a "Neurosymbolic" compiler built on LLVM/MLIR. It combines the logical rigor of a custom tensor-native language (**TensorLang**) with the adaptive intuition of LLMs (**Gemini**) to create software that can autonomously optimize and heal itself while running.
 
 ---
 
-## ⚡️ TL;DR: What is this?
-**Imagine a computer program that can fix itself when it crashes and speed itself up when it's slow—by talking to an AI.**
+## The Vision: Autonomous Code Evolution
+In traditional software, code is static. NeuroJIT makes code dynamic and resilient:
+*   **Autonomous Optimization:** The compiler identifies "hot spots" at runtime, sends the IR to Gemini for expert optimization (e.g., tiling for specific GPUs), and hot-swaps the execution pointer—all without stopping the program.
+*   **Self-Healing Systems:** When a `tensorlang.assert` fails (e.g., in a flight simulation), the runtime pauses, queries the AI for a patch, applies the fix, and resumes execution.
+*   **Hardware Agnosticism:** High-level math is automatically ported and tuned for new hardware architectures by the AI "ghost in the machine."
 
-Usually, code is static: once a programmer writes it, it never changes. **NeuroJIT** changes that. It's a "Neurosymbolic" compiler.
-
-*   **"Symbolic":** These are the rules. We built our own language (**TensorLang**) that follows strict, logical principles. It’s great at math but doesn't know how to optimize itself for every computer chip in the world.
-*   **"Neural":** This is the intuition. We connected the language to an AI (**Gemini**). When the program runs, it "looks" at its own code, realizes it could be better, and asks the AI to rewrite it on the fly.
-
-**In short:** It's software that evolves while it's running. It's half-robot, half-brain.
+**[Read more about the Vision and Real-World Usage →](docs/vision.md)**
 
 ---
 
-> ⚠️ **Disclaimer:** This is a weekend experiment co-developed with **Gemini 3 Pro Preview / 2.5**. We built this to learn about MLIR, LLVM, and the weird challenges of letting Large Language Models mess with low-level machine code.
+## Project Architecture
 
-## 📚 Documentation & Guides
+The core of the project is **TensorLang**, a dialect optimized for AI workloads and safety:
 
-We have organized the documentation to help you understand the magic (and the math) behind NeuroJIT.
-
-### 🧠 Concepts (For Humans)
-*   **[What is "Neurosymbolic" AI?](docs/concepts/neurosymbolic.md)** - Understanding why we combine Logic + AI.
-*   **[Tensor Math & Optimization](docs/concepts/tensor_math.md)** - What are Convolutions, Tensors, and Tiling? (Explained simply).
-
-### 🏗️ Architecture (For Engineers)
-*   **[System Overview](docs/architecture/overview.md)** - How TensorLang, LLVM, and Gemini talk to each other.
-*   **[The Vision](docs/vision.md)** - How this could work in a real-world production system.
-
-### 🎮 Demos & Walkthroughs
-*   **[Self-Healing Lunar Lander](docs/demos/self_healing_lander.md)** - Watch the compiler save a crashing simulation mid-flight.
-*   **[Autonomous Optimization](docs/demos/autonomous_optimization.md)** - See the compiler speed up matrix math by 2.7x automatically.
+*   **[TensorLang Dialect](tensorlang/README.md)**: Implementation of `LinearTensor` types and core ops (`matmul`, `symbolic_dim`).
+*   **[LLVM ORC JIT](tensorlang/README.md#executionengine)**: The engine that handles MLIR-to-Machine Code compilation and live symbol hot-swapping.
+*   **[AI Runtime Interface](tensorlang/README.md#runtime)**: The bridge connecting the compiler to Gemini for code generation and repair.
 
 ---
 
 ## Quick Start
 
-You need LLVM 19 and Ninja installed.
-
 ### 1. Build the Project
+Requires LLVM 19 and Ninja.
 ```bash
 ./scripts/build_all.sh
 ```
 
-### 2. Run the Self-Healing Demo
-This runs the "NeuroLander" simulation. It *will* crash, and then it *will* fix itself.
-```bash
-./scripts/run_lander.sh
-```
+### 2. Run the Demos
+*   **Self-Healing:** Watch the "NeuroLander" simulation crash and fix itself.
+    ```bash
+    ./scripts/run_lander.sh
+    ```
+*   **Optimization:** See the compiler speed up matrix math automatically.
+    ```bash
+    ./scripts/run_example.sh
+    ```
 
-### 3. Run the Optimization Demo
-This runs a Matrix Multiplication benchmark.
-```bash
-./scripts/run_example.sh
-```
+---
 
-## Credits
-*   **Architect:** Antonio Paulino & Gemini 3 Pro Preview / 2.5
-*   **Backend:** LLVM / MLIR
-*   **Vibe:** Experimental / Chaotic Good
+## Documentation
+*   **[Concepts](docs/concepts/):** Neurosymbolic AI and Tensor Math.
+*   **[Architecture](docs/architecture/):** Detailed system design and MLIR pipelines.
+*   **[Progress Report](tensorlang/PROGRESS_REPORT.md):** Current development status and roadmap.
+
+---
+*Created by Antonio Paulino & Gemini 3 Pro Preview / 2.5*
