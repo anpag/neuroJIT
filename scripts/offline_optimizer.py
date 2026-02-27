@@ -64,12 +64,12 @@ def evaluate_ir(compiler_path, mlir_content):
     except subprocess.TimeoutExpired:
         return False, 0
 
-def query_gemini(api_key, ir_text, model="gemini-3-flash-preview"):
+def query_gemini(api_key, ir_text, model="gemini-1.5-flash"):
     if not api_key:
         print("  [Error] No API key found.")
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     prompt = f"You are an MLIR compiler engineer. Optimize the following MLIR code for performance. Return ONLY the optimized MLIR module. Do not use semicolons. Do not include markdown backticks.\n\nCODE:\n{ir_text}"
     
     payload = {
@@ -79,8 +79,7 @@ def query_gemini(api_key, ir_text, model="gemini-3-flash-preview"):
     }
     
     headers = {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': api_key
+        'Content-Type': 'application/json'
     }
     response = requests.post(url, headers=headers, json=payload)
     
@@ -104,7 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description="Offline MLIR Optimizer")
     parser.add_argument("files", nargs="+", help="MLIR files to optimize")
     parser.add_argument("--compiler", default="./build/tools/tensorlang-run/tensorlang-run", help="Path to compiler")
-    parser.add_argument("--model", default="gemini-3-flash-preview", help="Gemini model to use")
+    parser.add_argument("--model", default="gemini-1.5-flash", help="Gemini model to use")
     args = parser.parse_args()
 
     api_key = load_config()

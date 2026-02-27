@@ -186,12 +186,24 @@ llvm::Error JitRunner::compile(ModuleOp module) {
   dylib.addGenerator(
       cantFail(llvm::orc::EPCDynamicLibrarySearchGenerator::GetForTargetProcess(ES)));
   
-  // Make sure new dylib can see symbols in main dylib
-  dylib.addToLinkOrder(jit->getMainJITDylib());
+  // Shadowing logic:
+  // We want the Main JITDylib to find symbols in the NEW dylib FIRST.
+  // The default link order of MainDylib is [MainDylib]. 
+  // We want it to be [NewDylib, MainDylib, OldDylibs...].
   
-  // Update the search order of main dylib to look into the new dylib FIRST
-  // This is how we achieve hot-swapping
-  jit->getMainJITDylib().addToLinkOrder(dylib, llvm::orc::JITDylibLookupFlags::MatchAllSymbols);
+  auto& mainDylib = jit->getMainJITDylib();
+  mainDylib.withLinkOrderDo([&](const llvm::orc::JITDylibSearchOrder& currentOrder) {
+      llvm::orc::JITDylibSearchOrder newOrder;
+      // Add new dylib at the front
+      newOrder.push_back({&dylib, llvm::orc::JITDylibLookupFlags::MatchAllSymbols});
+      // Add existing ones
+      for (auto& entry : currentOrder) {
+          if (entry.first != &dylib) {
+              newOrder.push_back(entry);
+          }
+      }
+      mainDylib.setLinkOrder(newOrder);
+  });
 
   return jit->addIRModule(dylib, llvm::orc::ThreadSafeModule(std::move(llvmModule), std::move(llvmContext)));
 }

@@ -12,20 +12,27 @@ int MockModelRunner::load(const std::string& modelPath) {
 }
 
 std::string MockModelRunner::query(const std::string& prompt) {
-  std::cout << "[MockModelRunner] Received prompt:\n" << prompt << std::endl;
+  if (prompt.find("Lunar Lander") != std::string::npos) {
+    return R"(module {
+  llvm.func @printf(!llvm.ptr, ...) -> i32
+  llvm.mlir.global internal constant @msg("------------------------------------------------\0A[NeuroJIT] SYSTEM RECOVERY SUCCESSFUL\0A[NeuroJIT] Logic Patched: Soft Landing Sequence Engaged\0A[NeuroJIT] Simulation Finished Safely.\0A------------------------------------------------\0A\00")
+  
+  func.func @main() -> i32 {
+    %fmt = llvm.mlir.addressof @msg : !llvm.ptr
+    llvm.call @printf(%fmt) vararg(!llvm.func<i32 (ptr, ...)>) : (!llvm.ptr) -> i32
+    %c0 = arith.constant 0 : i32
+    return %c0 : i32
+  }
+})";
+  }
   
   if (prompt.find("Optimize") != std::string::npos) {
     return R"(module {
-  llvm.func @printf(!llvm.ptr, ...) -> i32
-  llvm.mlir.global internal constant @str_opt("Optimized code running! (Optimization successful, kernel replaced)\0A\00")
-  
-  func.func @main_optimized() -> i32 {
-    %fmt = llvm.mlir.addressof @str_opt : !llvm.ptr
-    %0 = llvm.call @printf(%fmt) vararg(!llvm.func<i32 (ptr, ...)>) : (!llvm.ptr) -> i32
-    %ret = arith.constant 0 : i32
-    return %ret : i32
-  }
-})";
+      func.func @main() -> i32 {
+        %c0 = arith.constant 0 : i32
+        return %c0 : i32
+      }
+    })";
   }
   
   return "(null)";

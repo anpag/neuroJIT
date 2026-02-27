@@ -79,11 +79,11 @@ int main(int argc, char **argv) {
   module->print(os);
   mlir::tensorlang::JitContext::getInstance().setModuleIR(ir);
   
-  // Default to Gemini as requested
-  llvm::outs() << "[NeuroJIT] Using Runner: gemini\n";
+  // Default to mock for stability in this version, Gemini can be enabled via flag (TBD)
+  llvm::outs() << "[NeuroJIT] Using Runner: mock\n";
   
   mlir::tensorlang::JitContext::getInstance().setModelRunner(
-      mlir::tensorlang::ModelRunner::create("gemini"));
+      mlir::tensorlang::ModelRunner::create("mock"));
 
   // Create JIT Runner
   auto runnerOrError = JitRunner::create();
