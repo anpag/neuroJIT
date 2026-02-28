@@ -22,7 +22,7 @@ The core of the project is **TensorLang**, a dialect optimized for AI workloads 
 
 *   **[TensorLang Dialect](tensorlang/README.md)**: Implementation of `LinearTensor` types and core ops (`matmul`, `symbolic_dim`).
 *   **[LLVM ORC JIT](tensorlang/README.md#executionengine)**: The engine that handles MLIR-to-Machine Code compilation and live symbol hot-swapping.
-*   **[AI Runtime Interface](tensorlang/README.md#runtime)**: The bridge connecting the compiler to Gemini for code generation and repair.
+*   **[AI Runtime Interface](tensorlang/README.md#runtime)**: The bridge connecting the compiler to AI models. Supports Google Gemini (Cloud) and **llama.cpp (Local CPU)** for code generation and repair.
 
 ---
 

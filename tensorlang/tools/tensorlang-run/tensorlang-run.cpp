@@ -34,6 +34,10 @@ using namespace llvm;
 
 static cl::opt<std::string> inputFilename(cl::Positional, cl::desc("<input file>"),
                                           cl::init("-"));
+static cl::opt<std::string> runnerType("runner", cl::desc("LLM runner type (mock, gemini, llama)"),
+                                        cl::init("llama"));
+static cl::opt<std::string> modelPath("model", cl::desc("Path to GGUF model"),
+                                        cl::init("tensorlang/runtime/models/qwen2.5-coder-7b-instruct-q4_k_m.gguf"));
 
 int main(int argc, char **argv) {
   if (argc > 1000) tensorlang_get_ir();
@@ -79,11 +83,16 @@ int main(int argc, char **argv) {
   module->print(os);
   mlir::tensorlang::JitContext::getInstance().setModuleIR(ir);
   
-  // Default to mock for stability in this version, Gemini can be enabled via flag (TBD)
-  llvm::outs() << "[NeuroJIT] Using Runner: mock\n";
+  llvm::outs() << "[NeuroJIT] Using Runner: " << runnerType << "\n";
   
-  mlir::tensorlang::JitContext::getInstance().setModelRunner(
-      mlir::tensorlang::ModelRunner::create("mock"));
+  auto runner_impl = mlir::tensorlang::ModelRunner::create(runnerType);
+  if (runnerType == "llama" || runnerType == "gemini") {
+    if (runner_impl->load(modelPath) != 0) {
+      llvm::errs() << "[NeuroJIT] Warning: Failed to load model for " << runnerType << ". Falling back to mock.\n";
+      runner_impl = mlir::tensorlang::ModelRunner::create("mock");
+    }
+  }
+  mlir::tensorlang::JitContext::getInstance().setModelRunner(std::move(runner_impl));
 
   // Create JIT Runner
   auto runnerOrError = JitRunner::create();

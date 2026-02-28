@@ -11,6 +11,8 @@ target_include_directories(TensorLangTransforms PUBLIC
 target_link_libraries(TensorLangTransforms PUBLIC
   MLIRIR
   MLIRPass
+  MLIRFuncDialect
+  MLIRSCFDialect
   TensorLangIR
 )
 

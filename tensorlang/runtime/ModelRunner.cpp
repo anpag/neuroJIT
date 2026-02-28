@@ -1,10 +1,18 @@
 #include "tensorlang/Runtime/ModelRunner.h"
+#include "tensorlang/Runtime/Runners.h"
 #include <iostream>
 
 namespace mlir {
 namespace tensorlang {
 
-// std::unique_ptr<ModelRunner> ModelRunner::create(const std::string& type) { ... } moved to GeminiModelRunner.cpp
+std::unique_ptr<ModelRunner> ModelRunner::create(const std::string& type) {
+  if (type == "gemini") {
+    return createGeminiModelRunner();
+  } else if (type == "llama") {
+    return createLlamaCppModelRunner();
+  }
+  return std::make_unique<MockModelRunner>();
+}
 
 int MockModelRunner::load(const std::string& modelPath) {
   std::cout << "[MockModelRunner] Loading model from: " << modelPath << std::endl;

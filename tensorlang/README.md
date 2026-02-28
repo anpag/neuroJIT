@@ -21,6 +21,8 @@ This directory contains the implementation of the TensorLang compiler infrastruc
 *   **`Runtime/`**: The "Brain Interface".
     *   C++ hooks that the running JIT code calls into.
     *   `GeminiModelRunner.cpp`: The bridge that sends IR to Google Gemini and receives optimized code.
+    *   `LlamaCppModelRunner.cpp`: Local AI backend using `llama.cpp` for privacy and offline operation.
+    *   `Runners.h`: Common interface for instantiating model runners.
     *   `Runtime.cpp`: Handles assertions, self-healing triggers, and I/O.
 
 *   **`examples/`**:
