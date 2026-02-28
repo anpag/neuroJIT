@@ -40,7 +40,9 @@ We have benchmarked various local models on the "NeuroLander" autonomous landing
 
 **Final Recommendation:** The **Gemma 3 (Brain) + Qwen 2.5 (Muscle)** pair is the new state-of-the-art for local compiler evolution.
 
-See the full **[Phase 4 Report: Multi-Agent Local AI Integration](./docs/PHASE_4_REPORT.md)** for detailed quantitative analysis.
+See the full research reports for technical details:
+*   **[Phase 6: Recursive Architecture Optimization (The Curiosity Drive)](./docs/RECURSIVE_OPTIMIZATION.md)**
+*   **[Phase 4: Multi-Agent Local AI Integration](./docs/PHASE_4_REPORT.md)**
 
 ---
 

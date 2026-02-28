@@ -27,16 +27,33 @@ void tensorlang_stop_timer(float final_v) {
   printf("[Profiling] Simulation Latency: %.6f s (Avg: %.6f s), Final Vel: %.2f m/s (Best: %.2f m/s)\n", 
          latency, ctx.getAverageLatency(), final_v, ctx.getBestImpactVelocity());
 
-  // Iterative Refinement: Trigger background optimization with telemetry context
-  if (!ctx.isOptimizingCurrently()) {
+  // Phase 6: Recursive Architecture Optimization (The Curiosity Drive)
+  // We perform evolution sequentially AFTER the simulation to ensure stability.
+  printf("[Curiosity] Entering Refinement Phase...\n");
+  
+  auto* runner = ctx.getModelRunner();
+  if (runner) {
     std::string ir = ctx.getModuleIR();
-    std::string prompt = "REFINEMENT LOOP:\n"
-                         "Current Best Impact Velocity: " + std::to_string(ctx.getBestImpactVelocity()) + " m/s\n"
-                         "Average Execution Latency: " + std::to_string(ctx.getAverageLatency()) + " s\n\n"
-                         "GOAL: Optimize the @get_thrust function to achieve a softer landing (closer to -0.5 m/s) "
-                         "and lower latency. Maintain safety at all costs.\n"
-                         "Return ONLY the FULL MLIR module.\n\n" + ir;
-    tensorlang_optimize_async(prompt.c_str(), "get_thrust");
+    std::stringstream prompt_ss;
+    prompt_ss << "ADAPTIVE REFINEMENT ENGINE (Generation " << ctx.getHealingAttempts() << "):\n"
+              << "Current Best Impact Velocity: " << ctx.getBestImpactVelocity() << " m/s\n"
+              << "Current Performance: " << latency << " s\n\n"
+              << "GOAL: Proactively mutate the @get_thrust function. "
+              << "Try a NEW architectural approach (e.g. PID, derivative-aware control, or state-based logic) "
+              << "to achieve a landing closer to -0.5 m/s with higher fuel efficiency.\n"
+              << "Return ONLY the FULL MLIR module.\n\n" << ir;
+    
+    std::string response = runner->query(prompt_ss.str());
+    if (response.find("(error") == std::string::npos) {
+       printf("[Curiosity] New architecture received. Size: %zu bytes.\n", response.size());
+       if (tensorlang_compile(response.c_str()) == 0) {
+         void* fnPtr = tensorlang_get_symbol_address("get_thrust");
+         if (fnPtr) {
+           printf("[Curiosity] Evolution successful. New architecture synthesized.\n");
+           ctx.setOptimizedFunction(fnPtr);
+         }
+       }
+    }
   }
 }
 

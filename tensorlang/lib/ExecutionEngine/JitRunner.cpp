@@ -123,6 +123,11 @@ llvm::Error JitRunner::run(ModuleOp module) {
 }
 
 llvm::Expected<int> JitRunner::invoke(llvm::StringRef functionName) {
+  // If this is 'main', we check if we have a hot-swapped version first?
+  // Actually, 'main' isn't hot-swapped, but @get_thrust is.
+  // The MLIR code calls @get_thrust. We need to make sure the JIT resolves it to the NEW one.
+  // Our shadowing logic in compile() already handles this by adding the new dylib to the front.
+  
   auto sym = jit->lookup(functionName);
   if (!sym)
     return sym.takeError();
