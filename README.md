@@ -31,11 +31,12 @@ The core of the project is **TensorLang**, a dialect optimized for AI workloads 
 
 We have benchmarked various local models on the "NeuroLander" self-healing task (64-core CPU, 120GB RAM).
 
-| Model | Size | Latency | Tokens/s | Result |
+| Model | Size | Tokens/s | Result | Logic Quality |
 | :--- | :--- | :--- | :--- | :--- |
-| **Qwen 2.5 Coder 7B** | 4.7 GB | ~13s | 12.2 | **SUCCESS (Stable logic)** |
-| **DeepSeek V2 Lite** | 10.3 GB | ~4s | 18.6 | **FAILURE (Hallucinations)** |
-| **Qwen 2.5 Coder 32B** | 19.1 GB | N/A | N/A | Process Crash (Too heavy) |
+| **Gemma 3 12B-It** | 7.9 GB | Pending | **TBD** | Evaluation in progress |
+| **Qwen 2.5 Coder 7B** | 4.7 GB | 12.2 | **SUCCESS** | **High**. Correct math/syntax. |
+| **Llama 3.1 8B** | 4.6 GB | 9.1 | **FAILURE** | Medium. Undeclared SSA values. |
+| **DeepSeek V2 Lite** | 10.3 GB | 18.6 | **FAILURE** | Low. Hallucinated MLIR ops. |
 
 **Conclusion:** **Qwen 2.5 Coder 7B** is our recommended local backend. It provides the highest adherence to MLIR syntax and stable inference on standard CPU hardware.
 

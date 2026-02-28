@@ -68,6 +68,7 @@ Defined in `TensorLang.td` and `TensorLangOps.cpp`.
 *   [x] **Few-Shot Prompting:** Integrated successful physics constants into specialized ChatML prompts to eliminate "physics hallucinations."
 *   [x] **Grammar Research:** Evaluated GBNF grammars for MLIR; documented constraints and transitioned to robust prompt-based syntactic guardrails.
 *   [x] **Verified Self-Healing:** Successfully ran the "NeuroLander" demo entirely offline using local Qwen2.5-Coder and DeepSeek-V2-Lite models.
+*   [ ] **Evaluation:** Evaluating **Gemma 3 12B-It** for superior reasoning and complex MLIR fixes.
 
 ## 5. Conclusion & Research Notes
 The compiler infrastructure is fully functional and supports autonomous, offline self-healing.

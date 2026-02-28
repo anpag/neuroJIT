@@ -31,6 +31,7 @@ public:
 
   int load(const std::string& modelPath) override {
     std::cout << "[LlamaCpp] Loading model: " << modelPath << std::endl;
+    currentModelPath = modelPath;
     
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0; // CPU only as requested
@@ -51,24 +52,45 @@ public:
     auto start_time = std::chrono::high_resolution_clock::now();
     std::cout << "[LlamaCpp] Querying model..." << std::endl;
 
-    // Construct full prompt with strict rules and physics guidance
+    // Determine prompt format based on model name
     std::stringstream prompt_ss;
-    prompt_ss << "<|im_start|>system\n"
-              << "You are an MLIR compiler engineer. Return ONLY the code for @get_thrust.\n"
-              << "STRICT RULES:\n"
-              << "1. FULL FUNCTION: Return the code inside `func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 { ... }`.\n"
-              << "2. SYNTAX: %res = arith.subf %arg1, %arg2 : f32\n"
-              << "3. NO MARKDOWN: Do not use ``` or backticks.\n"
-              << "4. LOGIC: Use thrust = ( -1.0 - velocity ) * 4.0.\n"
-              << "<|im_end|>\n"
-              << "<|im_start|>user\n"
-              << "Rewrite this function to land safely:\n"
-              << "  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n"
-              << "    %c0 = arith.constant 0.0 : f32\n"
-              << "    return %c0 : f32\n"
-              << "  }\n"
-              << "<|im_end|>\n"
-              << "<|im_start|>assistant\n";
+    if (currentModelPath.find("gemma-3") != std::string::npos) {
+        prompt_ss << "<|begin_of_thought|>\n"
+                  << "I need to rewrite the @get_thrust function in MLIR to prevent the lander from crashing. "
+                  << "The current code returns 0.0, but I need to use the velocity %arg1 to calculate thrust. "
+                  << "Thrust logic: thrust = ( -1.0 - velocity ) * 4.0. "
+                  << "<|end_of_thought|>\n"
+                  << "<|im_start|>system\n"
+                  << "You are an MLIR compiler engineer. Return ONLY the code for @get_thrust inside the module.\n"
+                  << "<|im_end|>\n"
+                  << "<|im_start|>user\n"
+                  << "Rewrite @get_thrust for safety:\n"
+                  << "  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n"
+                  << "    %c0 = arith.constant 0.0 : f32\n"
+                  << "    return %c0 : f32\n"
+                  << "  }\n"
+                  << "<|im_end|>\n"
+                  << "<|im_start|>assistant\n";
+    } else {
+        // Default ChatML for Qwen/Llama/DeepSeek
+        prompt_ss << "<|im_start|>system\n"
+                  << "You are an MLIR compiler engineer. Return ONLY the code for @get_thrust.\n"
+                  << "STRICT RULES:\n"
+                  << "1. FULL FUNCTION: Return the code inside `func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 { ... }`.\n"
+                  << "2. NO INLINE LITERALS: You CANNOT use numbers directly in operations. You MUST declare a constant first.\n"
+                  << "3. SYNTAX: %res = arith.subf %v1, %v2 : f32\n"
+                  << "4. NO MARKDOWN: Do not use ``` or backticks.\n"
+                  << "5. LOGIC: Use thrust = ( -1.0 - velocity ) * 4.0.\n"
+                  << "<|im_end|>\n"
+                  << "<|im_start|>user\n"
+                  << "Rewrite this function to land safely:\n"
+                  << "  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n"
+                  << "    %c0 = arith.constant 0.0 : f32\n"
+                  << "    return %c0 : f32\n"
+                  << "  }\n"
+                  << "<|im_end|>\n"
+                  << "<|im_start|>assistant\n";
+    }
     
     std::string full_prompt = prompt_ss.str();
 
@@ -157,7 +179,16 @@ public:
     std::string result = ss.str();
     std::cout << "[LlamaCpp] Raw model output:\n" << result << "\n[LlamaCpp] End of raw output." << std::endl;
 
-    // 1. Strip Markdown Code Blocks
+    // 1. Strip Thought Blocks (Gemma 3)
+    size_t thought_start = result.find("<|begin_of_thought|>");
+    if (thought_start != std::string::npos) {
+        size_t thought_end = result.find("<|end_of_thought|>", thought_start);
+        if (thought_end != std::string::npos) {
+            result = result.substr(thought_end + 18); // Skip thought content
+        }
+    }
+
+    // 2. Strip Markdown Code Blocks
     size_t start_ticks = result.find("```");
     if (start_ticks != std::string::npos) {
         size_t next_line = result.find("\n", start_ticks);
@@ -205,6 +236,7 @@ public:
   }
 
 private:
+  std::string currentModelPath;
   llama_model* model = nullptr;
   const llama_vocab* vocab = nullptr;
   llama_context* ctx = nullptr;
