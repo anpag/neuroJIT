@@ -33,6 +33,15 @@ void* tensorlang_get_symbol_address(const char* name);
 /// Called when a tensorlang.assert fails.
 void tensorlang_assert_fail(int64_t loc);
 
+/// Starts a high-resolution timer.
+void tensorlang_start_timer();
+
+/// Stops the timer and records latency.
+void tensorlang_stop_timer();
+
+/// Triggers background optimization.
+void tensorlang_optimize_async(const char* prompt, const char* target_name);
+
 } // extern "C"
 
 #endif // TENSORLANG_RUNTIME_RUNTIME_H

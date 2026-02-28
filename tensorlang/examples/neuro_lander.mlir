@@ -2,6 +2,8 @@ module {
   // Runtime Hooks
   func.func private @tensorlang_assert_fail(i64)
   func.func private @tensorlang_print_status(f32, f32)
+  func.func private @tensorlang_start_timer()
+  func.func private @tensorlang_stop_timer()
 
   // --- THE PILOT (System 1) ---
   // Currently: Terrible pilot. Does nothing.
@@ -26,6 +28,8 @@ module {
     %c0_f32 = arith.constant 0.0 : f32
     %c_safe_speed = arith.constant -5.0 : f32
     %true = arith.constant 1 : i1
+
+    func.call @tensorlang_start_timer() : () -> ()
 
     // Simulation Loop (200 ticks)
     %final_res:2 = scf.for %i = %c0_idx to %c200_idx step %c1_idx iter_args(%h=%h0, %v=%v0) -> (f32, f32) {
@@ -55,6 +59,8 @@ module {
         
         scf.yield %h_new, %v_new : f32, f32
     }
+
+    func.call @tensorlang_stop_timer() : () -> ()
     
     return %c0_i32 : i32
   }

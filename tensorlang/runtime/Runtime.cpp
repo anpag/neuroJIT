@@ -10,6 +10,33 @@
 
 extern "C" {
 
+static std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
+
+void tensorlang_start_timer() {
+  start_time = std::chrono::high_resolution_clock::now();
+}
+
+void tensorlang_stop_timer() {
+  auto end_time = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> diff = end_time - start_time;
+  double latency = diff.count();
+  auto& ctx = mlir::tensorlang::JitContext::getInstance();
+  ctx.recordLatency(latency);
+  
+  printf("[Profiling] Simulation Latency: %.6f s (Avg: %.6f s)\n", 
+         latency, ctx.getAverageLatency());
+
+  // Proactive Evolution: If we have an optimized version, we are happy.
+  // Otherwise, trigger an optimization request after the first successful run.
+  if (!ctx.getOptimizedFunction()) {
+    std::string ir = ctx.getModuleIR();
+    std::string prompt = "This code is functional but needs optimization for performance. "
+                         "Rewrite the @get_thrust function to be more efficient while maintaining "
+                         "soft landing safety. Return ONLY the FULL MLIR module.\n\n" + ir;
+    tensorlang_optimize_async(prompt.c_str(), "get_thrust");
+  }
+}
+
 void tensorlang_print_f32(float* data, int64_t rank, int64_t* shape) {
   // ... (existing implementation)
 }

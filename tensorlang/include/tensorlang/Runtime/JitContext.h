@@ -8,6 +8,7 @@
 #include <memory>
 #include <atomic>
 #include <csetjmp>
+#include <mutex>
 
 namespace mlir {
 namespace tensorlang {
@@ -46,6 +47,22 @@ public:
   void incrementHealingAttempts() { healing_attempts.fetch_add(1); }
   void resetHealingAttempts() { healing_attempts.store(0); }
 
+  // Performance Telemetry
+  void recordLatency(double seconds) {
+    std::lock_guard<std::mutex> lock(statsMutex);
+    lastLatency = seconds;
+    totalLatency += seconds;
+    executionCount++;
+  }
+  double getLastLatency() const { 
+    std::lock_guard<std::mutex> lock(statsMutex);
+    return lastLatency; 
+  }
+  double getAverageLatency() const {
+    std::lock_guard<std::mutex> lock(statsMutex);
+    return executionCount > 0 ? totalLatency / executionCount : 0.0;
+  }
+
 private:
   JitContext() = default;
   JitRunner* runner = nullptr;
@@ -55,6 +72,12 @@ private:
   std::atomic<void*> optimizedFunctionPtr{nullptr};
   std::atomic<bool> isOptimizing{false};
   std::atomic<int> healing_attempts{0};
+
+  // Performance stats
+  mutable std::mutex statsMutex;
+  double lastLatency = 0.0;
+  double totalLatency = 0.0;
+  uint64_t executionCount = 0;
 
   std::jmp_buf recovery_point;
   StrategyCache strategyCache;

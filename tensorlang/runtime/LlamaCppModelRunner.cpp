@@ -51,37 +51,22 @@ public:
     auto start_time = std::chrono::high_resolution_clock::now();
     std::cout << "[LlamaCpp] Querying model..." << std::endl;
 
-    // Construct full prompt with ChatML formatting and strict syntax rules
+    // Construct full prompt with strict rules and physics guidance
     std::stringstream prompt_ss;
     prompt_ss << "<|im_start|>system\n"
-              << "You are an MLIR compiler engineer. The following MLIR code is crashing because @get_thrust is returning 0.0. "
-              << "You MUST rewrite @get_thrust to calculate thrust based on %arg1 (velocity). "
-              << "PHYSICS RULES: To stop a -10m/s descent, you need a gain (%kp) between 2.0 and 4.0 and a target velocity around -1.0. "
-              << "Return ONLY the complete MLIR module. No prose, no backticks, no semicolons.\n"
+              << "You are an MLIR compiler engineer. Return ONLY the code for @get_thrust.\n"
+              << "STRICT RULES:\n"
+              << "1. FULL FUNCTION: Return the code inside `func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 { ... }`.\n"
+              << "2. SYNTAX: %res = arith.subf %arg1, %arg2 : f32\n"
+              << "3. NO MARKDOWN: Do not use ``` or backticks.\n"
+              << "4. LOGIC: Use thrust = ( -1.0 - velocity ) * 4.0.\n"
               << "<|im_end|>\n"
               << "<|im_start|>user\n"
-              << "Optimize the following MLIR code for soft landing:\n"
-              << "module {\n"
-              << "  func.func @get_thrust(%h: f32, %v: f32) -> f32 {\n"
+              << "Rewrite this function to land safely:\n"
+              << "  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n"
               << "    %c0 = arith.constant 0.0 : f32\n"
               << "    return %c0 : f32\n"
               << "  }\n"
-              << "}\n"
-              << "<|im_end|>\n"
-              << "<|im_start|>assistant\n"
-              << "module {\n"
-              << "  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n"
-              << "    %target_v = arith.constant -1.0 : f32\n"
-              << "    %diff = arith.subf %target_v, %arg1 : f32\n"
-              << "    %kp = arith.constant 3.5 : f32\n"
-              << "    %thrust = arith.mulf %diff, %kp : f32\n"
-              << "    return %thrust : f32\n"
-              << "  }\n"
-              << "}\n"
-              << "<|im_end|>\n"
-              << "<|im_start|>user\n"
-              << "Fix the code. @get_thrust always returns 0.0, causing a crash. Rewrite it with landing logic:\n"
-              << prompt
               << "<|im_end|>\n"
               << "<|im_start|>assistant\n";
     
@@ -114,6 +99,7 @@ public:
     llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
 
     // Load and add grammar
+    /* Grammar disabled due to llama.cpp parsing crashes with MLIR whitespace
     std::string grammar_path = "tensorlang/runtime/mlir_thrust.gbnf";
     std::ifstream grammar_file(grammar_path);
     if (grammar_file.is_open()) {
@@ -130,6 +116,7 @@ public:
     } else {
         std::cerr << "[LlamaCpp] Warning: Could not load grammar file: " << grammar_path << std::endl;
     }
+    */
 
     // Decode prompt
     llama_batch batch = llama_batch_get_one(prompt_tokens.data(), prompt_tokens.size());
@@ -168,10 +155,21 @@ public:
               << (n_decode / (duration > 0 ? duration : 1.0)) << " tokens/sec)" << std::endl;
 
     std::string result = ss.str();
-    
     std::cout << "[LlamaCpp] Raw model output:\n" << result << "\n[LlamaCpp] End of raw output." << std::endl;
-    
-    // Simple cleanup of the result
+
+    // 1. Strip Markdown Code Blocks
+    size_t start_ticks = result.find("```");
+    if (start_ticks != std::string::npos) {
+        size_t next_line = result.find("\n", start_ticks);
+        if (next_line != std::string::npos) {
+            size_t end_ticks = result.find("```", next_line);
+            if (end_ticks != std::string::npos) {
+                result = result.substr(next_line + 1, end_ticks - next_line - 1);
+            }
+        }
+    }
+
+    // 2. Try to extract module
     size_t module_pos = result.find("module");
     if (module_pos != std::string::npos) {
         size_t brace_pos = result.find("{", module_pos);
@@ -180,11 +178,28 @@ public:
             size_t last_brace = code.rfind("}");
             if (last_brace != std::string::npos) {
                 code = code.substr(0, last_brace + 1);
-                std::cout << "[LlamaCpp] Extracted MLIR:\n" << code << std::endl;
+                std::cout << "[LlamaCpp] Extracted Module:\n" << code << std::endl;
                 return code;
             }
         }
     }
+
+    // 3. Try to extract function
+    size_t func_pos = result.find("func.func");
+    if (func_pos != std::string::npos) {
+        size_t last_brace = result.rfind("}");
+        if (last_brace != std::string::npos) {
+            std::string func_code = result.substr(func_pos, last_brace - func_pos + 1);
+            std::string wrapped = "module {\n" + func_code + "\n}";
+            std::cout << "[LlamaCpp] Extracted Function and Wrapped in module:\n" << wrapped << std::endl;
+            return wrapped;
+        }
+    }
+
+    // 4. Fallback: If it's just raw body, wrap it in a function and module
+    std::string fallback = "module {\n  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n" + result + "\n  }\n}";
+    std::cout << "[LlamaCpp] Fallback Wrapping:\n" << fallback << std::endl;
+    return fallback;
 
     return result;
   }
