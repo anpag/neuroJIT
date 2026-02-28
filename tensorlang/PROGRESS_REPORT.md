@@ -78,8 +78,13 @@ Our experiments in `docs/EXPERIMENTS.md` show:
 *   **DeepSeek-V2-Lite (MoE):** Fastest inference (18+ tokens/s), but prone to "physics hallucinations" (hallucinating non-existent MLIR ops).
 *   **Prompt Engineering vs. GBNF:** Prompt-based guardrails (ChatML) proved more stable than strict GBNF grammars for complex MLIR output due to whitespace sensitivity in the `llama.cpp` parser.
 
-### 5.2 Next: Phase 5 (Continuous Evolution)
-The system will move beyond reactive "Self-Healing" (fixing crashes) to proactive "Continuous Evolution," where the compiler re-rewrites code to maximize FLOPS/Watt during idle cycles.
+### Phase 5: Continuous Evolution (IN PROGRESS)
+*   [x] **Runtime Profiling:** Implemented `tensorlang_start_timer` and `tensorlang_stop_timer` to track execution latency in `JitContext`.
+*   [x] **Async Evolution Loop:** Created background trigger that queries the LLM for performance optimizations during "idle" cycles or after successful runs.
+*   [x] **Robust Extraction:** Enhanced `LlamaCppModelRunner` to handle multiple output formats (raw function bodies vs. full modules).
+*   [ ] **Optimization Pass:** Implement a "FLOPS-per-watt" estimator for comparing candidate IR versions.
+*   [ ] **Model Feedback:** Feed performance deltas (before/after) back into the prompt to guide iterative refinement.
+
 
 
 ## 5. Files Created/Modified
