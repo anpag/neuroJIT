@@ -6,7 +6,7 @@ NeuroJIT is built on LLVM/MLIR. It combines the logical rigor of a custom tensor
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 *   **Self-Healing Runtime**: Detects imminent crashes (e.g., failed assertions) and queries an embedded LLM to rewrite the offending MLIR code on the fly.
 *   **Continuous Evolution**: Proactively profiles JIT-compiled functions and triggers background AI optimization to improve latency and efficiency.
@@ -16,7 +16,7 @@ NeuroJIT is built on LLVM/MLIR. It combines the logical rigor of a custom tensor
 
 ---
 
-## 🏗️ Architecture Summary
+## Architecture Summary
 
 The core of the project is **TensorLang**, a dialect optimized for AI workloads and safety:
 
@@ -27,7 +27,7 @@ The core of the project is **TensorLang**, a dialect optimized for AI workloads 
 
 ---
 
-## 📊 Model Performance & Benchmarks
+## Model Performance & Benchmarks
 
 We have benchmarked various local models on the "NeuroLander" self-healing task (64-core CPU, 120GB RAM).
 
@@ -41,7 +41,7 @@ We have benchmarked various local models on the "NeuroLander" self-healing task 
 
 ---
 
-## 🛠️ Quick Start
+## Quick Start
 
 ### 1. Build the Compiler
 Ensure you have CMake, Ninja, and GCC 15+.
@@ -71,7 +71,7 @@ python3 scripts/generate_training_data.py
 
 ---
 
-## 📈 Roadmap Status
+## Roadmap Status
 
 *   **Phase 1-2:** JIT Infrastructure & Tensor Ops (**COMPLETE**)
 *   **Phase 3:** Cloud AI Integration (Gemini) (**COMPLETE**)
