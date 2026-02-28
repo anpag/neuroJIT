@@ -39,6 +39,7 @@ public:
   /// Tries to set isOptimizing to true. Returns true if successful (lock acquired).
   bool tryStartOptimization();
   void finishOptimization();
+  bool isOptimizingCurrently() const { return isOptimizing.load(); }
 
   // Recovery Support
   std::jmp_buf& getRecoveryPoint() { return recovery_point; }
@@ -48,12 +49,23 @@ public:
   void resetHealingAttempts() { healing_attempts.store(0); }
 
   // Performance Telemetry
-  void recordLatency(double seconds) {
+  void recordTelemetry(double impactVel, double latency) {
     std::lock_guard<std::mutex> lock(statsMutex);
-    lastLatency = seconds;
-    totalLatency += seconds;
+    lastLatency = latency;
+    totalLatency += latency;
     executionCount++;
+    
+    // Impact velocity (smaller is better/safer)
+    if (std::abs(impactVel) < std::abs(bestImpactVelocity)) {
+      bestImpactVelocity = impactVel;
+    }
   }
+
+  double getBestImpactVelocity() const {
+    std::lock_guard<std::mutex> lock(statsMutex);
+    return bestImpactVelocity;
+  }
+
   double getLastLatency() const { 
     std::lock_guard<std::mutex> lock(statsMutex);
     return lastLatency; 
@@ -77,6 +89,7 @@ private:
   mutable std::mutex statsMutex;
   double lastLatency = 0.0;
   double totalLatency = 0.0;
+  double bestImpactVelocity = 100.0; // Starting with high value (bad landing)
   uint64_t executionCount = 0;
 
   std::jmp_buf recovery_point;

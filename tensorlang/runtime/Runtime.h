@@ -36,8 +36,8 @@ void tensorlang_assert_fail(int64_t loc);
 /// Starts a high-resolution timer.
 void tensorlang_start_timer();
 
-/// Stops the timer and records latency.
-void tensorlang_stop_timer();
+/// Stops the timer and records telemetry (impact velocity, latency).
+void tensorlang_stop_timer(float final_v);
 
 /// Triggers background optimization.
 void tensorlang_optimize_async(const char* prompt, const char* target_name);

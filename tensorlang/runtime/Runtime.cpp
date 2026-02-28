@@ -16,23 +16,26 @@ void tensorlang_start_timer() {
   start_time = std::chrono::high_resolution_clock::now();
 }
 
-void tensorlang_stop_timer() {
+void tensorlang_stop_timer(float final_v) {
   auto end_time = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> diff = end_time - start_time;
   double latency = diff.count();
   auto& ctx = mlir::tensorlang::JitContext::getInstance();
-  ctx.recordLatency(latency);
   
-  printf("[Profiling] Simulation Latency: %.6f s (Avg: %.6f s)\n", 
-         latency, ctx.getAverageLatency());
+  ctx.recordTelemetry(static_cast<double>(final_v), latency);
+  
+  printf("[Profiling] Simulation Latency: %.6f s (Avg: %.6f s), Final Vel: %.2f m/s (Best: %.2f m/s)\n", 
+         latency, ctx.getAverageLatency(), final_v, ctx.getBestImpactVelocity());
 
-  // Proactive Evolution: If we have an optimized version, we are happy.
-  // Otherwise, trigger an optimization request after the first successful run.
-  if (!ctx.getOptimizedFunction()) {
+  // Iterative Refinement: Trigger background optimization with telemetry context
+  if (!ctx.isOptimizingCurrently()) {
     std::string ir = ctx.getModuleIR();
-    std::string prompt = "This code is functional but needs optimization for performance. "
-                         "Rewrite the @get_thrust function to be more efficient while maintaining "
-                         "soft landing safety. Return ONLY the FULL MLIR module.\n\n" + ir;
+    std::string prompt = "REFINEMENT LOOP:\n"
+                         "Current Best Impact Velocity: " + std::to_string(ctx.getBestImpactVelocity()) + " m/s\n"
+                         "Average Execution Latency: " + std::to_string(ctx.getAverageLatency()) + " s\n\n"
+                         "GOAL: Optimize the @get_thrust function to achieve a softer landing (closer to -0.5 m/s) "
+                         "and lower latency. Maintain safety at all costs.\n"
+                         "Return ONLY the FULL MLIR module.\n\n" + ir;
     tensorlang_optimize_async(prompt.c_str(), "get_thrust");
   }
 }
@@ -132,35 +135,37 @@ void tensorlang_optimize_async(const char* prompt, const char* target_name) {
     return;
   }
   
-  // 3. Spawn detached thread for network call
+  // 3. Spawn detached thread for optimization
   std::thread([promptStr, targetNameStr]() {
     llvm::errs() << "[Async] Cache miss. Starting optimization thread...\n";
     auto& ctx = mlir::tensorlang::JitContext::getInstance();
     
-    char* ir = tensorlang_query_model(promptStr.c_str());
-    if (!ir) {
+    auto* runner = ctx.getModelRunner();
+    if (!runner) {
+      ctx.finishOptimization();
+      return;
+    }
+    
+    std::string response = runner->query(promptStr);
+    if (response.find("(error") != std::string::npos) {
       llvm::errs() << "[Async] Query failed.\n";
       ctx.finishOptimization();
       return;
     }
     
     // Cache the result
-    ctx.getStrategyCache().insert(promptStr, ir);
+    ctx.getStrategyCache().insert(promptStr, response);
     
-    if (tensorlang_compile(ir) != 0) {
+    if (tensorlang_compile(response.c_str()) != 0) {
       llvm::errs() << "[Async] Compilation failed.\n";
-      delete[] ir;
       ctx.finishOptimization();
       return;
     }
-    delete[] ir;
     
     void* fnPtr = tensorlang_get_symbol_address(targetNameStr.c_str());
     if (fnPtr) {
       llvm::errs() << "[Async] Hot-swap successful! New implementation ready.\n";
       ctx.setOptimizedFunction(fnPtr);
-    } else {
-      llvm::errs() << "[Async] Failed to find target symbol: " << targetNameStr << "\n";
     }
     
     ctx.finishOptimization();
