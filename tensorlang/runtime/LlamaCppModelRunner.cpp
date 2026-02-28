@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <chrono>
+#include <fstream>
 
 namespace mlir {
 namespace tensorlang {
@@ -46,14 +48,15 @@ public:
   std::string query(const std::string& prompt) override {
     if (!model) return "(error: model not loaded)";
 
+    auto start_time = std::chrono::high_resolution_clock::now();
     std::cout << "[LlamaCpp] Querying model..." << std::endl;
 
-    // Construct full prompt with ChatML formatting for Qwen2.5-Coder
+    // Construct full prompt with ChatML formatting and strict syntax rules
     std::stringstream prompt_ss;
     prompt_ss << "<|im_start|>system\n"
               << "You are an MLIR compiler engineer. The following MLIR code is crashing because @get_thrust is returning 0.0. "
-              << "You MUST change the @get_thrust function to calculate a thrust value based on %h (altitude) and %v (velocity) to ensure a soft landing. "
-              << "Example of fixed logic: %thrust = -0.5 * %v. "
+              << "You MUST rewrite @get_thrust to calculate thrust based on %arg1 (velocity). "
+              << "PHYSICS RULES: To stop a -10m/s descent, you need a gain (%kp) between 2.0 and 4.0 and a target velocity around -1.0. "
               << "Return ONLY the complete MLIR module. No prose, no backticks, no semicolons.\n"
               << "<|im_end|>\n"
               << "<|im_start|>user\n"
@@ -67,17 +70,17 @@ public:
               << "<|im_end|>\n"
               << "<|im_start|>assistant\n"
               << "module {\n"
-              << "  func.func @get_thrust(%h: f32, %v: f32) -> f32 {\n"
-              << "    %target_v = arith.constant -2.0 : f32\n"
-              << "    %diff = arith.subf %target_v, %v : f32\n"
-              << "    %kp = arith.constant 1.5 : f32\n"
+              << "  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n"
+              << "    %target_v = arith.constant -1.0 : f32\n"
+              << "    %diff = arith.subf %target_v, %arg1 : f32\n"
+              << "    %kp = arith.constant 3.5 : f32\n"
               << "    %thrust = arith.mulf %diff, %kp : f32\n"
               << "    return %thrust : f32\n"
               << "  }\n"
               << "}\n"
               << "<|im_end|>\n"
               << "<|im_start|>user\n"
-              << "Optimize the following MLIR code:\n"
+              << "Fix the code. @get_thrust always returns 0.0, causing a crash. Rewrite it with landing logic:\n"
               << prompt
               << "<|im_end|>\n"
               << "<|im_start|>assistant\n";
@@ -110,6 +113,24 @@ public:
     smpl = llama_sampler_chain_init(sparams);
     llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
 
+    // Load and add grammar
+    std::string grammar_path = "tensorlang/runtime/mlir_thrust.gbnf";
+    std::ifstream grammar_file(grammar_path);
+    if (grammar_file.is_open()) {
+        std::stringstream buffer;
+        buffer << grammar_file.rdbuf();
+        std::string grammar_str = buffer.str();
+        auto* grammar_sampler = llama_sampler_init_grammar(vocab, grammar_str.c_str(), "root");
+        if (grammar_sampler) {
+            llama_sampler_chain_add(smpl, grammar_sampler);
+            std::cout << "[LlamaCpp] Applied grammar constraints from " << grammar_path << std::endl;
+        } else {
+            std::cerr << "[LlamaCpp] Error: Failed to parse grammar. Continuing without constraints." << std::endl;
+        }
+    } else {
+        std::cerr << "[LlamaCpp] Warning: Could not load grammar file: " << grammar_path << std::endl;
+    }
+
     // Decode prompt
     llama_batch batch = llama_batch_get_one(prompt_tokens.data(), prompt_tokens.size());
     if (llama_decode(ctx, batch)) {
@@ -140,10 +161,17 @@ public:
       n_decode++;
     }
 
-    std::string result = ss.str();
-    std::cerr << "[LlamaCpp] Raw model output:\n" << result << "\n[LlamaCpp] End of raw output." << std::endl;
+    auto end_time = std::chrono::high_resolution_clock::now();
+    double duration = std::chrono::duration<double>(end_time - start_time).count();
     
-    // Simple cleanup of the result (same as GeminiModelRunner)
+    std::cout << "[LlamaCpp] Inference finished in " << duration << "s (" 
+              << (n_decode / (duration > 0 ? duration : 1.0)) << " tokens/sec)" << std::endl;
+
+    std::string result = ss.str();
+    
+    std::cout << "[LlamaCpp] Raw model output:\n" << result << "\n[LlamaCpp] End of raw output." << std::endl;
+    
+    // Simple cleanup of the result
     size_t module_pos = result.find("module");
     if (module_pos != std::string::npos) {
         size_t brace_pos = result.find("{", module_pos);
@@ -152,7 +180,7 @@ public:
             size_t last_brace = code.rfind("}");
             if (last_brace != std::string::npos) {
                 code = code.substr(0, last_brace + 1);
-                std::cerr << "[LlamaCpp] Extracted MLIR:\n" << code << std::endl;
+                std::cout << "[LlamaCpp] Extracted MLIR:\n" << code << std::endl;
                 return code;
             }
         }

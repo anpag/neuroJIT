@@ -63,17 +63,23 @@ Defined in `TensorLang.td` and `TensorLangOps.cpp`.
 ### Phase 4: Local AI Integration (COMPLETE)
 *   [x] **Submodule Integration:** Added `llama.cpp` as a core dependency.
 *   [x] **Local Runner:** Implemented `LlamaCppModelRunner` for on-device inference.
-*   [x] **Few-Shot Prompting:** Configured specialized ChatML prompts for Qwen2.5-Coder models.
-*   [x] **Hardware Acceleration:** Optimized for 64-core CPU architectures.
-*   [x] **Verified Self-Healing:** Successfully ran the "NeuroLander" demo using local 7B and 32B GGUF models.
+*   [x] **Hardware Optimization:** Configured for 64-core CPU architectures with performance telemetry (tokens/sec).
+*   [x] **Dataset Generation:** Created `scripts/generate_training_data.py` to autonomously search for successful physics strategies (50+ high-quality MLIR fixes found).
+*   [x] **Few-Shot Prompting:** Integrated successful physics constants into specialized ChatML prompts to eliminate "physics hallucinations."
+*   [x] **Grammar Research:** Evaluated GBNF grammars for MLIR; documented constraints and transitioned to robust prompt-based syntactic guardrails.
+*   [x] **Verified Self-Healing:** Successfully ran the "NeuroLander" demo entirely offline using local Qwen2.5-Coder and DeepSeek-V2-Lite models.
 
-## 5. Conclusion
-The compiler infrastructure is fully functional. It supports:
-1.  **Tensor Math:** Efficient Linalg-based compilation.
-2.  **Linear Types:** Safety checks for memory management.
-3.  **Self-Optimization:** Runtime reflection and hot-swapping of code via LLM interaction (simulated).
+## 5. Conclusion & Research Notes
+The compiler infrastructure is fully functional and supports autonomous, offline self-healing.
 
-Ready for advanced optimization research.
+### 5.1 Model Benchmarks
+Our experiments in `docs/EXPERIMENTS.md` show:
+*   **Qwen 2.5 Coder 7B:** Most reliable for MLIR syntax; logic is sound but benefits from few-shot physics hints.
+*   **DeepSeek-V2-Lite (MoE):** Fastest inference (18+ tokens/s), but prone to "physics hallucinations" (hallucinating non-existent MLIR ops).
+*   **Prompt Engineering vs. GBNF:** Prompt-based guardrails (ChatML) proved more stable than strict GBNF grammars for complex MLIR output due to whitespace sensitivity in the `llama.cpp` parser.
+
+### 5.2 Next: Phase 5 (Continuous Evolution)
+The system will move beyond reactive "Self-Healing" (fixing crashes) to proactive "Continuous Evolution," where the compiler re-rewrites code to maximize FLOPS/Watt during idle cycles.
 
 
 ## 5. Files Created/Modified

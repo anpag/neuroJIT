@@ -1,0 +1,6 @@
+root    ::= "module {\n" func "}\n"
+func    ::= "  func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {\n" body "  }\n"
+body    ::= line line line "    return " ssa " : f32\n"
+line    ::= "    " ssa " = " op "\n"
+op      ::= "arith.constant " [0-9] "." [0-9] " : f32" | "arith.mulf " ssa ", " ssa " : f32" | "arith.subf " ssa ", " ssa " : f32"
+ssa     ::= "%" [a-z]

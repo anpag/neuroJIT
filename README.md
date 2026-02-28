@@ -51,5 +51,13 @@ Requires LLVM 19 and Ninja.
 *   **[Architecture](docs/architecture/):** Detailed system design and MLIR pipelines.
 *   **[Progress Report](tensorlang/PROGRESS_REPORT.md):** Current development status and roadmap.
 
+## Research & Experiments
+
+To evaluate different models or generate new training data:
+
+*   **Generate Physics Data:** `python3 scripts/generate_training_data.py` (Searches for successful landing strategies).
+*   **Run Model Comparison:** `./scripts/run_lander.sh tensorlang/runtime/models/deepseek-coder-v2-lite-q4_k_m.gguf`
+*   **Performance Logs:** View `docs/EXPERIMENTS.md` for latest model benchmarks.
+
 ---
 *Created by Antonio Paulino & Gemini 3 Pro Preview / 2.5*
