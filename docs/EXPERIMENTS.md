@@ -4,37 +4,26 @@ This document tracks the performance and quality of various local LLMs when task
 
 ## Experimental Setup
 *   **Hardware:** 64-Core CPU, 120GB RAM (No GPU).
-*   **Prompting:** ChatML with few-shot examples of MLIR optimization.
-*   **Metric:** Inference latency (seconds), Token throughput (tokens/sec), and MLIR "healing" success.
+*   **Prompting:** ChatML with strict "No Inline Literals" guardrails and physics guidance.
+*   **Metric:** Inference latency (seconds), compilation success, and landing outcome.
 
-## Trial 1: Qwen 2.5 Coder (7B Instruct)
-*   **Model:** `qwen2.5-coder-7b-instruct-q4_k_m.gguf`
-*   **Size:** 4.7 GB
-*   **Latency:** ~70 seconds
-*   **Throughput:** 11.1 tokens/sec
-*   **Result:** **SUCCESS (Functional)**
-    *   Correctly identified the zero-thrust issue.
-    *   Implemented a simple proportional controller (`thrust = (target_v - current_v) * kp`).
-    *   **MLIR Quality:** High. No syntax errors, correctly used `arith` dialect.
-    *   **Landing Outcome:** Improved descent, but `kp` was slightly too low to prevent a hard landing on the first attempt.
+## Comparison Table (7B - 9B Range)
 
-## Trial 2: DeepSeek Coder V2 Lite (16B MoE)
-*   **Model:** `deepseek-coder-v2-lite-q4_k_m.gguf`
-*   **Size:** 10.3 GB
-*   **Latency:** ~45 seconds
-*   **Throughput:** 18.6 tokens/sec
-*   **Result:** **FAILURE (Hallucination)**
-    *   **MLIR Quality:** Poor. Hallucinated an invalid `arith.select` syntax and attempted to redefine the `%thrust` SSA value with a conflicting type (`i1` vs `f32`).
-    *   **Error:** `use of value '%thrust' expects different type than prior uses`.
-    *   **Landing Outcome:** Crash (Compilation failed).
+| Model | Size | Tokens/s | Compilation | Landing Result | Logic Quality |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Qwen 2.5 Coder 7B** | 4.7 GB | 12.2 | **Success** | Improved Descent | **High**. Correct math and syntax. |
+| **Llama 3.1 8B** | 4.6 GB | 9.1 | **Failure** | Crash | **Medium**. Hallucinated undeclared SSA values. |
+| **Gemma 2 9B** | 5.4 GB | 6.3 | **Failure** | Crash | **Low**. Hallucinated inline literals (broken syntax). |
+| **DeepSeek V2 Lite** | 10.3 GB | 18.6 | **Failure** | Crash | **Low**. Hallucinated non-existent MLIR ops. |
+| **CodeGemma 7B** | 5.0 GB | 6.3 | **Success** | Crash | **Zero**. Repeated broken code exactly. |
 
-## Trial 3: Qwen 2.5 Coder (32B Instruct)
-*   **Model:** `qwen2.5-coder-32b-instruct-q4_k_m.gguf`
-*   **Size:** 19.1 GB
-*   **Result:** **FAILURE (Stability)**
-    *   The model exceeded the stable inference threshold for the current environment's CPU/memory paging, resulting in a process crash during KV cache initialization.
+## Conclusion & Champion
+**Qwen 2.5 Coder 7B** is the undisputed champion for local MLIR generation in this size class.
 
-## Conclusion & Recommendation
-**Qwen 2.5 Coder 7B** is the current champion for local MLIR generation. Despite being the smallest model tested, it demonstrated the highest adherence to MLIR syntax rules and provided the most logically sound (compilable) patches. 
+### Why Qwen?
+1.  **Strict Syntax Adherence**: It was the only model that consistently respected MLIR's strict SSA and typing rules without hallucinating "fake" operations or literals.
+2.  **Instruction Following**: It correctly identified the zero-thrust bug and implemented a functional proportional controller based on the physics hints provided.
+3.  **Efficiency**: It maintained a stable 12 tokens/sec on CPU, providing a good balance between reasoning depth and latency.
 
-**Recommendation:** Use Qwen 7B for real-time healing; use Gemini (Cloud) for complex structural refactoring where higher-order reasoning is required.
+### Final Recommendation
+For all future local "Continuous Evolution" and "Self-Healing" tasks, the system will default to **Qwen 2.5 Coder 7B**. For complex architectural changes exceeding local reasoning, the system should fall back to **Gemini 1.5 Pro (Cloud)**.
