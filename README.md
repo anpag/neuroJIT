@@ -23,7 +23,7 @@ The core of the project is **TensorLang**, a dialect optimized for AI workloads 
 *   **[TensorLang Dialect](tensorlang/README.md)**: Implementation of `LinearTensor` types and core ops (`matmul`, `symbolic_dim`).
 *   **[LLVM ORC JIT](tensorlang/README.md#executionengine)**: Handles live MLIR-to-Machine Code compilation and symbol hot-swapping via dynamic libraries.
 *   **[Multi-Agent AI Runner](tensorlang/README.md#runtime)**: A dual-model inference engine that decouples reasoning from implementation.
-*   **[Evolutionary Lifeform Engine](docs/PHASE_4_REPORT.md)**: Feedback loops that use real-time telemetry (Impact Velocity, Fuel, Latency) to guide code mutations.
+*   **[Adaptive Refinement Engine](docs/PHASE_4_REPORT.md)**: Feedback loops that use real-time telemetry (Impact Velocity, Fuel, Latency) to guide code mutations.
 
 ---
 
@@ -74,7 +74,7 @@ Watch the compiler autonomously evolve its descent strategy to optimize for soft
 *   **Phase 3:** Cloud AI Integration (Gemini) (**COMPLETE**)
 *   **Phase 4:** Local AI Integration (llama.cpp) (**COMPLETE**)
 *   **Phase 5:** Continuous Evolution & Multi-Objective Optimization (**COMPLETE**)
-*   **Phase 6:** Autonomous Lifeform Emergence (**IN PROGRESS**)
+*   **Phase 6:** Recursive Architecture Optimization (**IN PROGRESS**)
 
 ---
 *Created by Antonio Paulino & Gemini 3 Pro Preview / 2.5*
