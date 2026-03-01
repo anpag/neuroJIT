@@ -93,6 +93,8 @@ void OptimizationWorker::workerLoop() {
       continue;
     }
 
+    fprintf(stderr, "[Worker] Raw LLM output (first 500 chars):\n%.500s\n", newIR.c_str());
+
     VerificationSandbox::VerificationResult vRes = VerificationSandbox::verifyCandidate(newIR);
     
     if (vRes == VerificationSandbox::VerificationResult::Success) {

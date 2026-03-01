@@ -19,18 +19,22 @@ VerificationSandbox::VerificationResult VerificationSandbox::verifyCandidate(con
   auto evalRunner = std::move(*evalRunnerOrErr);
 
   printf("[Sandbox] Compiling candidate MLIR...\n");
-  if (auto err = evalRunner->compileString(candidateIR)) {
+  if (auto err = evalRunner->loadString(candidateIR)) {
     fprintf(stderr, "[Sandbox] Compilation failed (LLM hallucinated invalid MLIR)\n");
     llvm::consumeError(std::move(err));
     return VerificationResult::CompileFailed;
   }
 
   printf("[Sandbox] Executing semantic checks on get_thrust...\n");
-  auto sym = evalRunner->lookup("get_thrust");
+  auto sym = evalRunner->lookup("_mlir_ciface_get_thrust");
   if (!sym) {
-    fprintf(stderr, "[Sandbox] Missing get_thrust symbol.\n");
     llvm::consumeError(sym.takeError());
-    return VerificationResult::CompileFailed; // Link failure counts as compile failure here
+    sym = evalRunner->lookup("get_thrust");
+    if (!sym) {
+      llvm::Error lookupErr = sym.takeError();
+      fprintf(stderr, "[Sandbox] Missing get_thrust symbol. Error: %s\n", llvm::toString(std::move(lookupErr)).c_str());
+      return VerificationResult::CompileFailed; // Link failure counts as compile failure here
+    }
   }
 
   auto get_thrust_fn = reinterpret_cast<float(*)(float, float)>(sym.get());

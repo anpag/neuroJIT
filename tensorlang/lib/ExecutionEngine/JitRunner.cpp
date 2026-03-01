@@ -170,6 +170,11 @@ llvm::Error JitRunner::compile(ModuleOp module) {
     return llvm::make_error<llvm::StringError>(g_last_error_msg, llvm::inconvertibleErrorCode());
   }
 
+  std::string llvm_ir_str;
+  llvm::raw_string_ostream llvm_os(llvm_ir_str);
+  llvmModule->print(llvm_os, nullptr);
+  llvm::errs() << "[JIT] Dump LLVM IR generated for candidate:\n" << llvm_ir_str << "\n";
+
   auto& ES = jit->getExecutionSession();
   auto dylibOrErr = ES.createJITDylib("fix_" + std::to_string(dylibCount++));
   if (!dylibOrErr) { module->getContext()->getDiagEngine().eraseHandler(handler); return dylibOrErr.takeError(); }
@@ -236,4 +241,45 @@ llvm::Error JitRunner::compileString(llvm::StringRef source) {
     return llvm::make_error<llvm::StringError>(g_last_error_msg, llvm::inconvertibleErrorCode());
   }
   return compile(*module);
+}
+
+llvm::Error JitRunner::loadString(llvm::StringRef source) {
+  g_last_error_msg = "";
+  mlir::DialectRegistry registry;
+  mlir::registerBuiltinDialectTranslation(registry);
+  mlir::registerLLVMDialectTranslation(registry);
+  mlir::arith::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::linalg::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::tensor::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::bufferization::func_ext::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::scf::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::vector::registerBufferizableOpInterfaceExternalModels(registry);
+  mlir::MLIRContext context(registry);
+  context.getOrLoadDialect<TensorLangDialect>();
+  context.getOrLoadDialect<func::FuncDialect>();
+  context.getOrLoadDialect<arith::ArithDialect>();
+  context.getOrLoadDialect<tensor::TensorDialect>();
+  context.getOrLoadDialect<linalg::LinalgDialect>();
+  context.getOrLoadDialect<mlir::scf::SCFDialect>();
+  context.getOrLoadDialect<mlir::memref::MemRefDialect>();
+  context.getOrLoadDialect<mlir::vector::VectorDialect>();
+  context.getOrLoadDialect<mlir::affine::AffineDialect>();
+  context.getOrLoadDialect<mlir::math::MathDialect>();
+  context.getOrLoadDialect<LLVM::LLVMDialect>();
+  llvm::SourceMgr sourceMgr;
+  sourceMgr.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(source), llvm::SMLoc());
+  
+  std::string diag_str;
+  llvm::raw_string_ostream os(diag_str);
+  mlir::ScopedDiagnosticHandler diagHandler(&context, [&](mlir::Diagnostic &diag) {
+    os << diag.getLocation() << ": " << diag << "\n";
+    return mlir::success();
+  });
+
+  mlir::OwningOpRef<mlir::ModuleOp> module = mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, &context);
+  if (!module) {
+    g_last_error_msg = diag_str.empty() ? "Failed to parse MLIR source" : diag_str;
+    return llvm::make_error<llvm::StringError>(g_last_error_msg, llvm::inconvertibleErrorCode());
+  }
+  return loadModule(*module);
 }

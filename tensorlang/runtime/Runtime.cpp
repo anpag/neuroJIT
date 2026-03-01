@@ -125,10 +125,16 @@ int tensorlang_compile(const char* ir_string) {
 void* tensorlang_get_symbol_address(const char* name) {
   auto* runner = mlir::tensorlang::JitContext::getInstance().getRunner();
   if (!runner) return nullptr;
-  auto sym = runner->lookup(name);
+  
+  std::string mangledName = std::string("_mlir_ciface_") + name;
+  auto sym = runner->lookup(mangledName);
   if (!sym) {
     llvm::consumeError(sym.takeError());
-    return nullptr;
+    sym = runner->lookup(name);
+    if (!sym) {
+      llvm::consumeError(sym.takeError());
+      return nullptr;
+    }
   }
   return *sym;
 }

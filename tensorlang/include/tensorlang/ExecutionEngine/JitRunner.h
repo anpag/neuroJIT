@@ -45,6 +45,10 @@ public:
   /// This parses the MLIR, optimizes it, and adds it to the JIT.
   llvm::Error compileString(llvm::StringRef source);
 
+  /// Compiles the MLIR string directly into the main JITDylib.
+  /// This is used for sandbox testing where we do not need hot-swapping dylibs.
+  llvm::Error loadString(llvm::StringRef source);
+
   /// Loads a module into the main dylib for execution
   llvm::Error loadModule(ModuleOp module);
 

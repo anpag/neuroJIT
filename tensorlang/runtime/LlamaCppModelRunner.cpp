@@ -69,23 +69,29 @@ private:
   std::string formatPrompt(const std::string& user_content) {
     std::ostringstream ss;
     ss << "<|im_start|>system\n"
-       << "You are an expert compiler optimization engineer. "
-       << "You will be provided with an MLIR module and an execution state context.\n"
-       << "Your task is to rewrite the failing MLIR function to prevent assertions or physics violations.\n\n"
-       << "CRITICAL DIALECT RULES:\n"
-       << "1. The 'tensorlang.assert' operation takes one operand and NO parenthesis:\n"
-       << "   VALID:   func.call @tensorlang_assert_fail(%cond) : (i64) -> ()\n"
-       << "   INVALID: assert(%cond)\n"
-       << "2. All variables must be strictly typed (e.g. : f32 or : i64).\n"
-       << "3. Use standard arith operations (arith.addf, arith.mulf, arith.cmpf olt).\n\n"
+       << "You are an expert compiler optimization engineer.\n"
+       << "Your task is to rewrite ONLY the failing 'get_thrust' function to prevent assertions or physics violations.\n\n"
+       << "CRITICAL RULES:\n"
+       << "1. The function MUST have the 'llvm.emit_c_interface' attribute.\n"
+       << "2. ONLY return the modified get_thrust function inside a module, DO NOT return the entire original file.\n\n"
+       << "EXAMPLE OF A VALID PATCH:\n"
+       << "module {\n"
+       << "  func.func @get_thrust(%h: f32, %v: f32) -> f32 attributes { llvm.emit_c_interface } {\n"
+       << "    %gravity = arith.constant 1.62 : f32\n"
+       << "    %kp      = arith.constant 0.5  : f32\n"
+       << "    %neg_v   = arith.negf %v : f32\n"
+       << "    %ctrl    = arith.mulf %neg_v, %kp : f32\n"
+       << "    %thrust  = arith.addf %gravity, %ctrl : f32\n"
+       << "    return %thrust : f32\n"
+       << "  }\n"
+       << "}\n\n"
        << "Return ONLY a valid MLIR module starting with `module {` and ending with `}`.\n"
-       << "No markdown. No explanation. No comments outside the module.\n"
        << "<|im_end|>\n"
        << "<|im_start|>user\n"
        << user_content << "\n"
        << "<|im_end|>\n"
        << "<|im_start|>assistant\n"
-       << "```mlir\nmodule {\n";
+       << "module {\n";
     return ss.str();
   }
 
@@ -109,7 +115,7 @@ private:
     llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
 
     std::ostringstream ss;
-    ss << "```mlir\n"; // Account for the prompt priming
+    ss << "module {\n"; // Account for the prompt priming
     llama_token id;
 
     for (int i = 0; i < n_predict; i++) {
@@ -130,12 +136,27 @@ private:
   }
 
   std::string extractMLIR(const std::string& raw) {
-    std::string clean = "module {\n" + raw;
-    size_t end = clean.find("```");
-    if (end != std::string::npos) {
-      return clean.substr(0, end);
+    size_t start = raw.find("module {");
+    if (start == std::string::npos) return raw; // Fallback
+
+    int depth = 0;
+    for (size_t i = start; i < raw.size(); i++) {
+      if (raw[i] == '{') depth++;
+      else if (raw[i] == '}') {
+        depth--;
+        if (depth == 0) {
+          return raw.substr(start, i - start + 1);
+        }
+      }
     }
-    return clean; 
+    
+    // Fallback if the model didn't perfectly close braces but wrote some code
+    size_t end = raw.find("```");
+    if (end != std::string::npos) {
+      return raw.substr(start, end - start);
+    }
+
+    return raw; 
   }
 };
 
