@@ -9,6 +9,7 @@
 #include <atomic>
 #include <csetjmp>
 #include <mutex>
+#include <unordered_map>
 
 namespace mlir {
 namespace tensorlang {
@@ -85,6 +86,10 @@ private:
   JitRunner* runner = nullptr;
   std::unique_ptr<ModelRunner> modelRunner;
   std::string currentIR;
+
+  // L1 Memory Cache for evolved lobes
+  std::unordered_map<std::string, std::string> lobeCache;
+  mutable std::mutex cacheMutex;
   
   std::atomic<void*> optimizedFunctionPtr{nullptr};
   std::atomic<bool> isOptimizing{false};

@@ -103,3 +103,13 @@ CHANGE_TYPE: Persistence / Lobe Registry Implementation
 TECHNICAL_DETAILS: Fully implemented `saveLobe`, `loadLobe`, and `hasLobe` in `JitContext.cpp`. Integrated these into the evolution loop in `Runtime.cpp`. The system now checks for 'Stability_v1' before querying the Brain and automatically serializes successful evolutions to `~/.neurojit/registry/Stability_v1.mlir`.
 FILE_MODIFIED: tensorlang/runtime/JitContext.cpp, tensorlang/runtime/Runtime.cpp
 RATIONALE: Finalizes the 'Cumulative Intelligence' architecture. Cross-session persistence is now active, allowing zero-latency logic reuse and providing a stable foundation for Phase 11 cross-breeding.
+
+CHANGE_TYPE: Performance / Multi-Tiered Caching
+TECHNICAL_DETAILS: Implementing L1 (RAM) / L2 (Disk) caching hierarchy for evolved lobes. Redesigning `saveLobe` to use an Async Write-Back pattern. Memory lookups will now precede disk hits.
+FILE_MODIFIED: tensorlang/runtime/JitContext.cpp, tensorlang/include/tensorlang/Runtime/JitContext.h
+RATIONALE: Synchronous disk I/O is a bottleneck for high-frequency evolution. Moving the hot-path lookups to L1 Memory Cache while maintaining L2 Disk Persistence ensures both zero-latency reuse and long-term intelligence.
+
+CHANGE_TYPE: Performance / Multi-Tiered Caching
+TECHNICAL_DETAILS: Fully implemented L1 (RAM) and L2 (Disk) caching for evolved lobes. Redesigned `saveLobe` to use an asynchronous detached thread for disk persistence, ensuring zero latency for the main simulation loop. Lookups now utilize `std::unordered_map` for immediate hit detection.
+FILE_MODIFIED: tensorlang/runtime/JitContext.cpp, tensorlang/include/tensorlang/Runtime/JitContext.h
+RATIONALE: Optimizes the JIT loop by eliminating synchronous I/O bottlenecks. Provides the performance of in-memory caching with the long-term stability of persistent disk storage.

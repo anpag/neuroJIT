@@ -3,6 +3,7 @@
 #include <fstream>
 #include <filesystem>
 #include <sstream>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -56,19 +57,38 @@ void JitContext::finishOptimization() {
 }
 
 void JitContext::saveLobe(const std::string& name, const std::string& ir) {
-  const char* home_env = std::getenv("HOME");
-  if (!home_env) return;
-  std::string home(home_env);
-  std::string dir = home + "/.neurojit/registry";
-  fs::create_directories(dir);
-  
-  std::ofstream out(dir + "/" + name + ".mlir");
-  out << ir;
-  out.close();
-  printf("[Registry] Lobe saved: %s\n", name.c_str());
+  // L1: Update Memory Cache immediately
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    lobeCache[name] = ir;
+  }
+
+  // L2: Async Write-Back to Disk
+  std::thread([name, ir]() {
+    const char* home_env = std::getenv("HOME");
+    if (!home_env) return;
+    std::string home(home_env);
+    std::string dir = home + "/.neurojit/registry";
+    fs::create_directories(dir);
+    
+    std::ofstream out(dir + "/" + name + ".mlir");
+    out << ir;
+    out.close();
+    printf("[Registry] Lobe persisted to disk: %s\n", name.c_str());
+  }).detach();
 }
 
 std::string JitContext::loadLobe(const std::string& name) {
+  // 1. Try L1 Memory Cache
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    if (lobeCache.count(name)) {
+      printf("[Registry] L1 Cache Hit: %s\n", name.c_str());
+      return lobeCache[name];
+    }
+  }
+
+  // 2. Fallback to L2 Disk Registry
   const char* home_env = std::getenv("HOME");
   if (!home_env) return "";
   std::string home(home_env);
@@ -79,11 +99,24 @@ std::string JitContext::loadLobe(const std::string& name) {
   
   std::stringstream ss;
   ss << in.rdbuf();
-  printf("[Registry] Lobe loaded: %s\n", name.c_str());
-  return ss.str();
+  std::string ir = ss.str();
+  
+  // Backfill L1 Cache
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    lobeCache[name] = ir;
+  }
+
+  printf("[Registry] L2 Disk Hit & L1 Backfill: %s\n", name.c_str());
+  return ir;
 }
 
 bool JitContext::hasLobe(const std::string& name) {
+  {
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    if (lobeCache.count(name)) return true;
+  }
+  
   const char* home_env = std::getenv("HOME");
   if (!home_env) return false;
   std::string home(home_env);
