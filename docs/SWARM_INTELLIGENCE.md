@@ -28,5 +28,17 @@ Every evolution cycle now tracks the **Time-to-Intelligence (TtI)**:
 | **Noise Resilience** | 0% | 72% | **Significant** |
 | **Avg. Time to Landing** | ~18s | ~12s | -33% |
 
-## 5. Next Steps: Genetic Cross-Breeding
+## 5. Phase 9: High-Fidelity Autonomy & Fast-Repair Bypass
+To overcome the "Complexity Wall" and reasoning latency during self-repair, Phase 9 introduced three critical system optimizations:
+
+### 5.1 Scoped Diagnostic Capture
+The JIT compiler now utilizes a `ScopedDiagnosticHandler` to capture exact MLIR parsing errors (e.g., `loc("-":12:27): expected ','`). This high-fidelity feedback is fed directly back to the AI.
+
+### 5.2 Fast-Repair Bypass
+By detecting "SYNTAX REPAIR MODE," the runtime now skips the DeepSeek-R1 (32B) Brain and routes diagnostics directly to the Qwen (7B) Muscle. This reduces the repair cycle latency from ~15 minutes to seconds.
+
+### 5.3 Hardware Saturation (64-Core Fix)
+Resolved a bottleneck in `llama_context_params` by explicitly setting `n_threads_batch = 64`. This ensures 100% core utilization during the prompt evaluation phase, dramaticallly speeding up architectural reasoning.
+
+## 6. Next Steps: Genetic Cross-Breeding
 In the next phase, the "Brain" will not just analyze telemetry but will **cross-breed** the most successful modular lobes from the top 10% of the swarm into a "Super Lobe" architecture.
