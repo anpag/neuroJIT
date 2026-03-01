@@ -53,38 +53,67 @@ public:
     std::lock_guard<std::mutex> lock(queryMutex);
     
     // Using Fresh Context Pattern for continuous evolution stability
-    llama_context* brainCtx = createContext(brainModel);
     llama_context* muscleCtx = createContext(muscleModel);
-    if (!brainCtx || !muscleCtx) return "(error: context creation failed)";
+    if (!muscleCtx) return "(error: muscle context creation failed)";
 
-    // --- STEP 1: THE BRAIN (Scalar Swarm Architecture) ---
-    std::stringstream brain_ss;
-    brain_ss << "<｜begin▁of▁sentence｜><｜User｜><think>\n"
-             << "Evolving a scalar control system for a swarm of 100 landers. "
-             << "Objective: Soft landing using f32 arithmetic.\n"
-             << "</think>\n"
-             << "SCALAR ARCHITECTURE:\n"
-             << "1. Target: @get_thrust(%h: f32, %v: f32) -> f32.\n"
-             << "2. Implement PD control logic.\n"
-             << "<｜Assistant｜>";
-    
-    std::string plan = runInference(brainCtx, brainModel, brain_ss.str(), 512);
-    
-    // --- STEP 2: THE MUSCLE (Scalar Implementation) ---
-    std::stringstream muscle_ss;
-    muscle_ss << "<|im_start|>system\n"
-              << "You are an MLIR specialist. Return ONLY the func.func @get_thrust block.\n"
-              << "RULES:\n"
-              << "1. Use scalar f32 math.\n"
-              << "<|im_end|>\n"
-              << "<|im_start|>user\n"
-              << "IMPLEMENT PLAN:\n" << plan << "\n"
-              << "<|im_end|>\n"
-              << "<|im_start|>assistant\n";
+    std::string plan;
+    std::string mlir_raw;
 
-    std::string mlir_raw = runInference(muscleCtx, muscleModel, muscle_ss.str(), 1024);
+    // Fast-Repair Bypass (With Chain-of-Thought)
+    if (prompt.find("SYNTAX REPAIR MODE:") != std::string::npos) {
+      std::cout << "[Evolution] Fast-Repair Bypass Triggered: Routing JIT diagnostics directly to Muscle (CoT enabled)..." << std::endl;
+      std::stringstream repair_ss;
+      repair_ss << "<|im_start|>system\n"
+                << "You are an MLIR specialist. You must REASON about the provided syntax error before fixing it.\n"
+                << "1. Use scalar f32 math.\n"
+                << "2. Address the specific loc() error provided.\n"
+                << "3. Ensure all function arguments and constants use valid MLIR delimiters (,).\n"
+                << "<|im_end|>\n"
+                << "<|im_start|>user\n"
+                << "ERROR AND CODE:\n" << prompt << "\n"
+                << "Analyze the error and return the FULL corrected func.func @get_thrust block.\n"
+                << "<|im_end|>\n"
+                << "<|im_start|>assistant\n"
+                << "<think>\n"; // Force the model to start thinking
+      mlir_raw = runInference(muscleCtx, muscleModel, repair_ss.str(), 1024);
+    } else {
+      llama_context* brainCtx = createContext(brainModel);
+      if (!brainCtx) {
+        llama_free(muscleCtx);
+        return "(error: brain context creation failed)";
+      }
+
+      // --- STEP 1: THE BRAIN (Scalar Swarm Architecture) ---
+      std::cout << "[Evolution] Brain (R1) analyzing swarm results..." << std::endl;
+      std::stringstream brain_ss;
+      brain_ss << "<｜begin▁of▁sentence｜><｜User｜><think>\n"
+               << "Evolving a scalar control system for a swarm of 100 landers. "
+               << "Objective: Soft landing using f32 arithmetic.\n"
+               << "</think>\n"
+               << "SCALAR ARCHITECTURE:\n"
+               << "1. Target: @get_thrust(%h: f32, %v: f32) -> f32.\n"
+               << "2. Implement PD control logic.\n"
+               << "<｜Assistant｜>";
+      
+      plan = runInference(brainCtx, brainModel, brain_ss.str(), 512);
+      llama_free(brainCtx);
+
+      // --- STEP 2: THE MUSCLE (Scalar Implementation) ---
+      std::cout << "[Evolution] Muscle synthesizing MLIR for Swarm Selection..." << std::endl;
+      std::stringstream muscle_ss;
+      muscle_ss << "<|im_start|>system\n"
+                << "You are an MLIR specialist. Return ONLY the func.func @get_thrust block.\n"
+                << "RULES:\n"
+                << "1. Use scalar f32 math.\n"
+                << "<|im_end|>\n"
+                << "<|im_start|>user\n"
+                << "IMPLEMENT PLAN:\n" << plan << "\n"
+                << "<|im_end|>\n"
+                << "<|im_start|>assistant\n";
+
+      mlir_raw = runInference(muscleCtx, muscleModel, muscle_ss.str(), 1024);
+    }
     
-    llama_free(brainCtx);
     llama_free(muscleCtx);
 
     return extractAndWrap(mlir_raw);
@@ -95,10 +124,10 @@ private:
   llama_model* brainModel = nullptr;
   llama_model* muscleModel = nullptr;
 
-  llama_context* createContext(llama_model* m) {
+  llama_context* createContext(llama_model* m, int n_ctx = 2048) {
     if (!m) return nullptr;
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx = 4096;
+    cparams.n_ctx = n_ctx;
     cparams.n_threads = 64;
     cparams.n_threads_batch = 64; // Saturation for prompt eval
     return llama_init_from_model(m, cparams);
