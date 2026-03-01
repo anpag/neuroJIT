@@ -27,6 +27,19 @@ void tensorlang_stop_timer(float final_v) {
   printf("[Profiling] Simulation Latency: %.6f s (Avg: %.6f s), Final Vel: %.2f m/s (Best: %.2f m/s)\n", 
          latency, ctx.getAverageLatency(), final_v, ctx.getBestImpactVelocity());
 
+  // Phase 10: The Lobe Registry (Persistent Evolution)
+  if (ctx.hasLobe("Stability_v1")) {
+    printf("[Registry] Found persistent lobe 'Stability_v1'. Bypassing R1 reasoning...\n");
+    std::string cached_ir = ctx.loadLobe("Stability_v1");
+    if (tensorlang_compile(cached_ir.c_str()) == 0) {
+      void* fnPtr = tensorlang_get_symbol_address("get_thrust");
+      if (fnPtr) {
+        ctx.setOptimizedFunction(fnPtr);
+        return; 
+      }
+    }
+  }
+
   // Phase 6: Recursive Architecture Optimization (The Curiosity Drive)
   // We perform evolution sequentially AFTER the simulation to ensure stability.
   printf("[Curiosity] Entering Refinement Phase...\n");
@@ -61,6 +74,10 @@ void tensorlang_stop_timer(float final_v) {
           
           printf("[Curiosity] Evolution successful! Total Time: %.2f s (Attempts: %d)\n", 
                  total_evolution_time, repair_attempt + 1);
+          
+          // Persistence
+          ctx.saveLobe("Stability_v1", response);
+          
           ctx.setOptimizedFunction(fnPtr);
           return; 
         }

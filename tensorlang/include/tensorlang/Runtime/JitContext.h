@@ -75,6 +75,11 @@ public:
     return executionCount > 0 ? totalLatency / executionCount : 0.0;
   }
 
+  // --- LOBE REGISTRY INTERFACE ---
+  void saveLobe(const std::string& name, const std::string& ir);
+  std::string loadLobe(const std::string& name);
+  bool hasLobe(const std::string& name);
+
 private:
   JitContext() = default;
   JitRunner* runner = nullptr;

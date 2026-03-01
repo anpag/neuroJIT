@@ -1,5 +1,10 @@
 #include "tensorlang/Runtime/JitContext.h"
 #include <mutex>
+#include <fstream>
+#include <filesystem>
+#include <sstream>
+
+namespace fs = std::filesystem;
 
 namespace mlir {
 namespace tensorlang {
@@ -34,8 +39,6 @@ std::string JitContext::getModuleIR() const {
 }
 
 void JitContext::setOptimizedFunction(void* fnPtr) {
-  // Relaxed ordering is sufficient because the function pointer itself is the synchronization point
-  // for the consumer (if they check null). However, Release is safer to ensure code memory is visible.
   optimizedFunctionPtr.store(fnPtr, std::memory_order_release);
 }
 
@@ -45,12 +48,47 @@ void* JitContext::getOptimizedFunction() const {
 
 bool JitContext::tryStartOptimization() {
   bool expected = false;
-  // Compare-and-Swap (CAS)
   return isOptimizing.compare_exchange_strong(expected, true);
 }
 
 void JitContext::finishOptimization() {
   isOptimizing.store(false);
+}
+
+void JitContext::saveLobe(const std::string& name, const std::string& ir) {
+  const char* home_env = std::getenv("HOME");
+  if (!home_env) return;
+  std::string home(home_env);
+  std::string dir = home + "/.neurojit/registry";
+  fs::create_directories(dir);
+  
+  std::ofstream out(dir + "/" + name + ".mlir");
+  out << ir;
+  out.close();
+  printf("[Registry] Lobe saved: %s\n", name.c_str());
+}
+
+std::string JitContext::loadLobe(const std::string& name) {
+  const char* home_env = std::getenv("HOME");
+  if (!home_env) return "";
+  std::string home(home_env);
+  std::string path = home + "/.neurojit/registry/" + name + ".mlir";
+  
+  std::ifstream in(path);
+  if (!in.is_open()) return "";
+  
+  std::stringstream ss;
+  ss << in.rdbuf();
+  printf("[Registry] Lobe loaded: %s\n", name.c_str());
+  return ss.str();
+}
+
+bool JitContext::hasLobe(const std::string& name) {
+  const char* home_env = std::getenv("HOME");
+  if (!home_env) return false;
+  std::string home(home_env);
+  std::string path = home + "/.neurojit/registry/" + name + ".mlir";
+  return fs::exists(path);
 }
 
 } // namespace tensorlang
