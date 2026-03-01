@@ -1,5 +1,7 @@
 #include "tensorlang/Runtime/OptimizationWorker.h"
-#include "tensorlang/Runtime/MLIRTemplates.h"
+#include "tensorlang/Runtime/JitContext.h"
+#include "tensorlang/Runtime/ModelRunner.h"
+#include "tensorlang/Runtime/VerificationSandbox.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdio>
 
@@ -29,10 +31,8 @@ OptimizationWorker::~OptimizationWorker() {
 void OptimizationWorker::submit(OptimizationRequest req) {
   {
     std::lock_guard<std::mutex> lock(queueMutex_);
-    // Drop duplicate requests for the same function to avoid queue buildup
     if (!queue_.empty() && queue_.back().functionName == req.functionName) {
-      printf("[Worker] Dropping duplicate request for '%s'\n",
-             req.functionName.c_str());
+      printf("[Worker] Dropping duplicate request for '%s'\n", req.functionName.c_str());
       return;
     }
     queue_.push(std::move(req));
@@ -54,32 +54,49 @@ void OptimizationWorker::workerLoop() {
     }
 
     busy_.store(true, std::memory_order_release);
-    printf("[Worker] Processing optimization for '%s'\n",
+    printf("[Worker] Processing %s for '%s'\n",
+           req.errorMessage.empty() ? "optimization" : "crash repair",
            req.functionName.c_str());
 
-    // The new IR comes pre-instantiated from the GA+Template pipeline.
-    // We just need to compile it and hot-swap if successful.
-    if (req.baselineIR.empty()) {
-      printf("[Worker] Empty IR in request — skipping\n");
+    auto* runner = JitContext::getInstance().getModelRunner();
+    if (!runner) {
+      printf("[Worker] ERROR: No model runner available.\n");
       busy_.store(false, std::memory_order_release);
       continue;
     }
 
-    if (tensorlang_compile(req.baselineIR.c_str()) == 0) {
-      void* fnPtr = tensorlang_get_symbol_address(req.functionName.c_str());
-      if (fnPtr) {
-        // ControlStrategy is embedded in req for the callback
-        // For now pass a default — the GA records fitness separately
-        hotSwapCb_(fnPtr, ControlStrategy{});
-        printf("[Worker] Compiled and hot-swapped '%s' successfully\n",
-               req.functionName.c_str());
+    std::string prompt = "You are an expert MLIR compiler engineer.\n";
+    if (!req.errorMessage.empty()) {
+      prompt += "The following MLIR module caused an assertion failure at runtime: " + req.errorMessage + "\n";
+      prompt += "Rewrite the function '" + req.functionName + "' to fix the bug and prevent the crash.\n";
+    } else {
+      prompt += "Optimize the function '" + req.functionName + "' in the following MLIR module.\n";
+    }
+    prompt += "Return the FULL, syntactically valid MLIR module. Wrap it in ```mlir ... ``` tags.\n";
+    prompt += "Original IR:\n```mlir\n" + req.originalIR + "\n```\n";
+
+    std::string newIR = runner->query(prompt);
+
+    if (newIR.empty()) {
+      printf("[Worker] LLM returned empty IR — skipping\n");
+      busy_.store(false, std::memory_order_release);
+      continue;
+    }
+
+    if (VerificationSandbox::verifyCandidate(newIR)) {
+      // It passed verification, compile it into the main context and swap!
+      if (tensorlang_compile(newIR.c_str()) == 0) {
+        void* fnPtr = tensorlang_get_symbol_address(req.functionName.c_str());
+        if (fnPtr) {
+          hotSwapCb_(fnPtr, newIR);
+        } else {
+          printf("[Worker] Main context compiled but symbol '%s' not found\n", req.functionName.c_str());
+        }
       } else {
-        printf("[Worker] Compiled but symbol '%s' not found\n",
-               req.functionName.c_str());
+        printf("[Worker] Main context compilation failed despite Sandbox success.\n");
       }
     } else {
-      printf("[Worker] Compilation failed for '%s'\n",
-             req.functionName.c_str());
+      printf("[Worker] Verification Sandbox rejected LLM logic. Dropping patch.\n");
     }
 
     processed_.fetch_add(1, std::memory_order_relaxed);

@@ -1,17 +1,17 @@
 module {
   // -------------------------------------------------------------------------
-  // Runtime hooks — V2 contract
+  // Runtime hooks — Async Auto-Healing API
   // -------------------------------------------------------------------------
   func.func private @tensorlang_print_status(f32, f32)
   func.func private @tensorlang_start_timer()
   func.func private @tensorlang_stop_timer(f32)
   func.func private @tensorlang_get_random() -> f32
   func.func private @tensorlang_record_thrust(f32)
+  func.func private @tensorlang_assert_fail(i64)
 
   // -------------------------------------------------------------------------
   // THE PILOT — initial state: zero thrust (worst case)
-  // The GA + template engine rewrites this function each generation.
-  // It is NEVER edited by the LLM directly.
+  // The AI compiler will rewrite this asynchronously if the lander crashes.
   // -------------------------------------------------------------------------
   func.func @get_thrust(%arg0: f32, %arg1: f32) -> f32 {
     %zero = arith.constant 0.0 : f32
@@ -20,8 +20,7 @@ module {
 
   // -------------------------------------------------------------------------
   // SIMULATION LOOP
-  // One episode = one call to @main.
-  // The outer generation loop is driven by the C++ harness (Task 17).
+  // One episode = one call to @sim_main.
   // -------------------------------------------------------------------------
   func.func @sim_main() -> i32 {
     %dt            = arith.constant 0.1  : f32
@@ -43,7 +42,6 @@ module {
         iter_args(%h = %h0, %v = %v0) -> (f32, f32) {
 
       // 1. Environmental noise — variable gravity each tick
-      //    This makes the problem non-trivially solvable by a pure P controller
       %noise    = func.call @tensorlang_get_random() : () -> f32
       %delta_g  = arith.mulf %noise, %noise_scale : f32
       %gravity  = arith.addf %base_gravity, %delta_g : f32
@@ -51,7 +49,7 @@ module {
       // 2. Control signal from the pilot
       %thrust   = func.call @get_thrust(%h, %v) : (f32, f32) -> f32
 
-      // 3. Record fuel consumption for fitness tracking
+      // 3. Record fuel consumption for profiling
       func.call @tensorlang_record_thrust(%thrust) : (f32) -> ()
 
       // 4. Physics update
@@ -64,19 +62,17 @@ module {
       // 5. Status display
       func.call @tensorlang_print_status(%h_new, %v_new) : (f32, f32) -> ()
 
-      // 6. Safe early exit: stop simulation if landed successfully
-      //    h < 0.5 AND |v| < 2.0 = successful soft landing
-      //    This prevents unnecessary ticks and gives settling time signal
+      // 6. Check for crash
       %near_ground   = arith.cmpf olt, %h_new, %c0_f32 : f32
-      %v_abs         = arith.mulf %v_new, %v_new : f32   // v^2 as proxy
-      
-      // If below ground AND moving too fast: the episode ends here.
-      // tensorlang_stop_timer is called with final velocity.
-      // The C++ runtime records the SimulationResult.
       %is_crashed    = arith.cmpf olt, %v_new, %safe_speed : f32
       %hard_landing  = arith.andi %near_ground, %is_crashed : i1
 
-      // Yield next state regardless — the outer harness handles termination
+      scf.if %hard_landing {
+        %loc_code = arith.constant 42 : i64
+        func.call @tensorlang_assert_fail(%loc_code) : (i64) -> ()
+      }
+
+      // Yield next state
       scf.yield %h_new, %v_new : f32, f32
     }
 

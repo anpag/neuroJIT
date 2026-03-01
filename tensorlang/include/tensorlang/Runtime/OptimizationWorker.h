@@ -1,7 +1,6 @@
 #ifndef TENSORLANG_RUNTIME_OPTIMIZATIONWORKER_H
 #define TENSORLANG_RUNTIME_OPTIMIZATIONWORKER_H
 
-#include "tensorlang/Runtime/OptimizationStrategy.h"
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -13,20 +12,19 @@
 namespace mlir {
 namespace tensorlang {
 
-/// A request submitted to the background optimization worker.
+/// A generic request submitted to the background optimization worker.
 struct OptimizationRequest {
-  std::string functionName;    ///< e.g. "get_thrust"
-  std::string baselineIR;      ///< Current full MLIR module string
-  SimulationResult baseline;   ///< Performance of the current implementation
+  std::string functionName;    ///< The function that needs attention.
+  std::string originalIR;      ///< Current MLIR module string.
+  std::string errorMessage;    ///< If empty, it's an optimization request. If populated, it's a crash/repair request.
 };
 
-/// Callback invoked on the calling thread when a better strategy is compiled.
-/// Provides the new function pointer and the strategy that produced it.
-using HotSwapCallback = std::function<void(void*, const ControlStrategy&)>;
+/// Callback invoked on the calling thread when better/fixed MLIR is compiled.
+/// Provides the new function pointer and the optimized MLIR source.
+using HotSwapCallback = std::function<void(void*, const std::string&)>;
 
-/// Asynchronous single-worker queue for optimization requests.
-/// The simulation loop NEVER blocks on this worker.
-/// Thread safety: submit() is safe to call from any thread.
+/// Asynchronous single-worker queue for AI-guided compiler requests.
+/// The main execution loop NEVER blocks on this worker.
 class OptimizationWorker {
 public:
   explicit OptimizationWorker(HotSwapCallback cb);

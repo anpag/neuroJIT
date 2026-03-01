@@ -5,9 +5,8 @@ add_library(TensorLangRuntime STATIC
   GeminiModelRunner.cpp
   LlamaCppModelRunner.cpp
   StrategyCache.cpp
-  StrategyGA.cpp
   OptimizationWorker.cpp
-  EvolutionHarness.cpp
+  VerificationSandbox.cpp
   # NEW FILES ADDED IN V2:
 )
 
@@ -38,6 +37,4 @@ target_link_libraries(TensorLangRuntime PRIVATE
   ${GGML_BASE_LIB}
 )
 
-# V2: Copy grammar files to build directory so runtime can find them
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/grammars
-     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+# V2: Removed grammar copy as it is no longer used
