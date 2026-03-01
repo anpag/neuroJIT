@@ -57,3 +57,9 @@ CHANGE_TYPE: AI Prompting / Bug Fix
 TECHNICAL_DETAILS: Added explicit instruction 'DO NOT use func.constant, use arith.constant' to the Muscle repair prompt.
 FILE_MODIFIED: tensorlang/runtime/LlamaCppModelRunner.cpp
 RATIONALE: Qwen consistently hallucinates 'func.constant' despite precise JIT feedback. Direct negative constraints are required to break the hallucination loop during the Fast-Repair Bypass.
+
+CHANGE_TYPE: Strategy / AI Syntax Repair
+TECHNICAL_DETAILS: Enabled Chain-of-Thought (CoT) in the Fast-Repair Bypass prompt. Added negative constraints for comma-delimiters based on JIT loc feedback.
+FILE_MODIFIED: tensorlang/runtime/LlamaCppModelRunner.cpp
+RATIONALE: Qwen (7B) is hitting a syntax-repetition loop. By forcing a reasoning step before the code block, we break the heuristic pattern and allow the model to dynamically correct the specific line identified by the ScopedDiagnosticHandler.
+EXECUTION_RESTART: CoT-Enabled Bypass Trial | START_TIMESTAMP: 1772386493
