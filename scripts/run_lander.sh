@@ -12,7 +12,7 @@ export LD_LIBRARY_PATH="$BUILD_DIR/lib:$BUILD_DIR/runtime:$PROJECT_ROOT/tensorla
 MODEL_PATH="${1:-$PROJECT_ROOT/tensorlang/runtime/models/qwen2.5-coder-7b-instruct-q4_k_m.gguf}"
 
 echo "Launching NeuroLander (Self-Healing Demo)..."
-timeout 600 "$BUILD_DIR/tools/tensorlang-run/tensorlang-run" \
+timeout 1800 "$BUILD_DIR/tools/tensorlang-run/tensorlang-run" \
     --runner=llama \
     --model="$MODEL_PATH" \
-    "$PROJECT_ROOT/tensorlang/examples/neuro_swarm.mlir"
+    "$PROJECT_ROOT/tensorlang/examples/neuro_swarm_vector.mlir"
