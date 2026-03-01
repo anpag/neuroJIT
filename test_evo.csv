@@ -1,0 +1,5 @@
+=== NeuroJIT V2 Evolution Harness ===
+Max generations: 1
+Target score:    80.000000
+generation,score,impact_vel,fuel,kp,ki,kd,target_v
+[Harness] Evolution complete. Best score: -1000.000000

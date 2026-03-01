@@ -1,3 +1,4 @@
+#include "tensorlang/Runtime/EvolutionHarness.h"
 #include "tensorlang/ExecutionEngine/JitRunner.h"
 #include "tensorlang/Dialect/TensorLang/IR/TensorLangDialect.h"
 #include "tensorlang/Runtime/Runtime.h"
@@ -42,6 +43,18 @@ static llvm::cl::opt<std::string> modelPath(
 static llvm::cl::opt<int> maxRestarts(
     "max-restarts", llvm::cl::desc("Maximum simulation restarts (default 5)"),
     llvm::cl::init(5));
+static llvm::cl::opt<bool> evolveMode(
+    "evolve",
+    llvm::cl::desc("Run the GA evolution harness instead of single execution"),
+    llvm::cl::init(false));
+static llvm::cl::opt<int> maxGenerations(
+    "max-generations",
+    llvm::cl::desc("Max GA generations in evolve mode (default 50)"),
+    llvm::cl::init(50));
+static llvm::cl::opt<std::string> evolutionLog(
+    "evolution-log",
+    llvm::cl::desc("CSV file to write per-generation results"),
+    llvm::cl::init("evolution_results.csv"));
 
 // ---------------------------------------------------------------------------
 // Helper: parse a module from a string
@@ -117,9 +130,13 @@ int main(int argc, char** argv) {
       // Reconstruct a ControlStrategy from saved result metadata
       // (In a fuller implementation, the JSON strategy is stored alongside the IR)
       // For now, seed with random population biased around known-good defaults
-      ControlStrategy seed;
-      seed.kp = 2.0f; seed.kd = 1.5f;
-      seed.targetVelocity = -1.0f; seed.thrustClampMax = 4.0f;
+      // Load the actual persisted strategy, not a hardcoded guess
+      ControlStrategy seed = ctx.loadLobeStrategy("Stability_v1");
+      if (seed.kp < 0.01f) {
+        // Fallback if JSON is missing or corrupt
+        seed.kp = 2.0f; seed.kd = 1.5f;
+        seed.targetVelocity = -1.0f; seed.thrustClampMax = 4.0f;
+      }
       ctx.getGA().seed(seed);
     }
   }
@@ -139,47 +156,48 @@ int main(int argc, char** argv) {
   int restartCount = 0;
   int exitCode = 0;
 
-  // Compile and run initial module
+  // ---------------------------------------------------------------------------
+  // Execution: evolve mode or single-run mode
+  // ---------------------------------------------------------------------------
+  // Compile the initial module into the JIT (this also runs the first episode)
   if (auto err = jitRunner->run(*module)) {
-    llvm::errs() << "Initial run failed: " << llvm::toString(std::move(err))
-                 << "\n";
-    // Don't exit — check for restart request first
+    llvm::errs() << "Initial run failed: " << llvm::toString(std::move(err)) << "\n";
   }
 
-  // Restart loop: handles assert-triggered restarts cleanly
-  while (restartCount < maxRestarts) {
-    std::string newIR;
-    if (!JitContext::getInstance().consumeRestartRequest(newIR)) {
-      break; // No restart requested — normal completion
-    }
+  if (evolveMode) {
+    // Evolution harness: runs N generations of GA
+    mlir::tensorlang::HarnessConfig harnessConfig;
+    harnessConfig.maxGenerations       = maxGenerations;
+    harnessConfig.episodesPerGeneration = 3; // Average over 3 runs for noise robustness
+    harnessConfig.targetScore          = 80.0;
+    harnessConfig.verbose              = true;
+    harnessConfig.logFile              = evolutionLog;
 
-    restartCount++;
-    printf("[NeuroJIT V2] Restart %d/%d with new IR (%zu bytes)\n",
-           restartCount, (int)maxRestarts, newIR.size());
+    double best = mlir::tensorlang::runEvolutionLoop(
+        jitRunner.get(), &context, ir, harnessConfig);
 
-    // Compile the new IR
-    if (tensorlang_compile(newIR.c_str()) != 0) {
-      llvm::errs() << "[NeuroJIT V2] Restart IR failed to compile\n";
-      continue;
-    }
+    printf("[NeuroJIT V2] Evolution complete. Best: %.2f\n", best);
+    return best >= harnessConfig.targetScore ? 0 : 1;
 
-    // Re-invoke main from the newly compiled module
-    auto result = jitRunner->invoke("main");
-    if (!result) {
-      llvm::errs() << "[NeuroJIT V2] Restart invoke failed: "
-                   << llvm::toString(result.takeError()) << "\n";
-      exitCode = 1;
-      break;
+  } else {
+    // Single execution mode (original behaviour)
+    [[maybe_unused]] int restartCount = 0;
+    while (restartCount < maxRestarts) {
+      std::string newIR;
+      if (!JitContext::getInstance().consumeRestartRequest(newIR)) break;
+      restartCount++;
+      printf("[NeuroJIT V2] Restart %d/%d\n", restartCount, (int)maxRestarts);
+      if (tensorlang_compile(newIR.c_str()) != 0) continue;
+      auto result = jitRunner->invoke("main");
+      if (!result) {
+        exitCode = 1;
+        break;
+      }
+      exitCode = result.get();
     }
-    exitCode = result.get();
   }
 
-  if (restartCount >= maxRestarts) {
-    llvm::errs() << "[NeuroJIT V2] Max restarts reached. Exiting.\n";
-    exitCode = 1;
-  }
-
-  printf("[NeuroJIT V2] Final best score: %.2f\n", ctx.getBestScore());
-  printf("[NeuroJIT V2] GA generation: %d\n", ctx.getGA().generation());
+  printf("[NeuroJIT V2] Final best score: %.2f | GA gen: %d\n",
+         ctx.getBestScore(), ctx.getGA().generation());
   return exitCode;
 }

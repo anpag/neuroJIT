@@ -94,6 +94,15 @@ public:
   /// Returns the SimulationResult stored with the lobe, or default if absent.
   SimulationResult loadLobeResult(const std::string& name);
 
+  /// Saves the ControlStrategy JSON that produced this lobe.
+  /// Stored as name.json alongside name.mlir in the registry.
+  void saveLobeStrategy(const std::string& name,
+                        const ControlStrategy& strategy);
+
+  /// Loads and parses the ControlStrategy for a named lobe.
+  /// Returns a default strategy if not found.
+  ControlStrategy loadLobeStrategy(const std::string& name);
+
 private:
   JitContext();
   void initWorker();

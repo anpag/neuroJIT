@@ -67,6 +67,8 @@ void tensorlang_stop_timer(float final_v) {
       result.score() > ctx.getBestScore() - 1.0) {
     std::string ir = ctx.getModuleIR();
     ctx.saveLobe("Stability_v1", ir, result);
+    // Also persist the strategy parameters so GA can warm-start next session
+    ctx.saveLobeStrategy("Stability_v1", ctx.getGA().best().strategy);
   }
 
   // Non-blocking: submit an optimization request to the background worker.

@@ -7,6 +7,7 @@ add_library(TensorLangRuntime STATIC
   StrategyCache.cpp
   StrategyGA.cpp
   OptimizationWorker.cpp
+  EvolutionHarness.cpp
   # NEW FILES ADDED IN V2:
 )
 

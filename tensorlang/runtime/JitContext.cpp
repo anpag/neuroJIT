@@ -198,5 +198,67 @@ SimulationResult JitContext::loadLobeResult(const std::string& name) {
   return {};
 }
 
+void JitContext::saveLobeStrategy(const std::string& name,
+                                   const ControlStrategy& s) {
+  // Format as JSON manually — nlohmann already in project via StrategyCache
+  // Using manual format to avoid adding an include here
+  char buf[512];
+  std::snprintf(buf, sizeof(buf),
+      "{\"kp\":%.6f,\"ki\":%.6f,\"kd\":%.6f,"
+      "\"target_velocity\":%.6f,\"thrust_clamp_max\":%.6f}\n",
+      s.kp, s.ki, s.kd, s.targetVelocity, s.thrustClampMax);
+  std::string json(buf);
+
+  std::thread([name, json]() {
+    std::string dir = lobeDir();
+    fs::create_directories(dir);
+    std::string tmp  = dir + "/" + name + ".json.tmp";
+    std::string dest = dir + "/" + name + ".json";
+    {
+      std::ofstream out(tmp);
+      if (!out) return;
+      out << json;
+    }
+    std::rename(tmp.c_str(), dest.c_str());
+    printf("[Registry] Strategy JSON saved: %s\n", name.c_str());
+  }).detach();
+}
+
+ControlStrategy JitContext::loadLobeStrategy(const std::string& name) {
+  std::string path = lobeDir() + "/" + name + ".json";
+  std::ifstream in(path);
+  if (!in.is_open()) {
+    printf("[Registry] No strategy JSON for '%s' — using defaults\n",
+           name.c_str());
+    return ControlStrategy{};
+  }
+  std::string json((std::istreambuf_iterator<char>(in)),
+                    std::istreambuf_iterator<char>());
+
+  // Simple field extraction — same pattern as StrategyGA::llmMutate
+  auto extract = [&](const std::string& key) -> float {
+    auto pos = json.find("\"" + key + "\"");
+    if (pos == std::string::npos) return 0.0f;
+    auto colon = json.find(':', pos);
+    if (colon == std::string::npos) return 0.0f;
+    const char* start = json.c_str() + colon + 1;
+    char* end;
+    float val = std::strtof(start, &end);
+    if (end == start) return 0.0f;
+    return val;
+  };
+
+  ControlStrategy s;
+  s.kp             = extract("kp");
+  s.ki             = extract("ki");
+  s.kd             = extract("kd");
+  s.targetVelocity = extract("target_velocity");
+  s.thrustClampMax = extract("thrust_clamp_max");
+
+  printf("[Registry] Loaded strategy: kp=%.3f ki=%.3f kd=%.3f\n",
+         s.kp, s.ki, s.kd);
+  return s;
+}
+
 } // namespace tensorlang
 } // namespace mlir

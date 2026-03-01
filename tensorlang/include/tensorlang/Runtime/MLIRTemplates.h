@@ -46,9 +46,9 @@ module {{
     %below_min   = arith.cmpf olt, %clamped_hi, %clamp_min : f32
     %result      = arith.select %below_min, %clamp_min, %clamped_hi : f32
 
-    return %result : f32
-  }}
-}}
+    func.return %result : f32
+  }
+}
 )mlir",
     s.kp, s.ki, s.kd, s.targetVelocity, s.thrustClampMax)
     .str();
