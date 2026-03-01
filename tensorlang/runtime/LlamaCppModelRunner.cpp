@@ -77,41 +77,23 @@ public:
                 << "<think>\n"; // Force the model to start thinking
       mlir_raw = runInference(muscleCtx, muscleModel, repair_ss.str(), 1024);
     } else {
-      llama_context* brainCtx = createContext(brainModel);
-      if (!brainCtx) {
-        llama_free(muscleCtx);
-        return "(error: brain context creation failed)";
-      }
-
-      // --- STEP 1: THE BRAIN (Scalar Swarm Architecture) ---
-      std::cout << "[Evolution] Brain (R1) analyzing swarm results..." << std::endl;
-      std::stringstream brain_ss;
-      brain_ss << "<｜begin▁of▁sentence｜><｜User｜><think>\n"
-               << "Evolving a scalar control system for a swarm of 100 landers. "
-               << "Objective: Soft landing using f32 arithmetic.\n"
-               << "</think>\n"
-               << "SCALAR ARCHITECTURE:\n"
-               << "1. Target: @get_thrust(%h: f32, %v: f32) -> f32.\n"
-               << "2. Implement PD control logic.\n"
-               << "<｜Assistant｜>";
+      // --- STEP 1: RAPID SYNTHESIS (Qwen only for Gen 1) ---
+      std::cout << "[Evolution] Rapid Synthesis Mode: Routing directly to Muscle..." << std::endl;
+      std::stringstream rapid_ss;
+      rapid_ss << "<|im_start|>system\n"
+               << "You are an MLIR specialist. Evolve a scalar control system for 100 landers.\n"
+               << "Objective: Soft landing using PD control arithmetic.\n"
+               << "Return ONLY the func.func @get_thrust block.\n"
+               << "RULES:\n"
+               << "1. Use scalar f32 math.\n"
+               << "2. Use arith.constant, arith.addf, arith.mulf.\n"
+               << "<|im_end|>\n"
+               << "<|im_start|>user\n"
+               << "IMPLEMENT PD CONTROL:\n" << prompt << "\n"
+               << "<|im_end|>\n"
+               << "<|im_start|>assistant\n";
       
-      plan = runInference(brainCtx, brainModel, brain_ss.str(), 256); // REDUCED PREDICT
-      llama_free(brainCtx);
-
-      // --- STEP 2: THE MUSCLE (Scalar Implementation) ---
-      std::cout << "[Evolution] Muscle synthesizing MLIR for Swarm Selection..." << std::endl;
-      std::stringstream muscle_ss;
-      muscle_ss << "<|im_start|>system\n"
-                << "You are an MLIR specialist. Return ONLY the func.func @get_thrust block.\n"
-                << "RULES:\n"
-                << "1. Use scalar f32 math.\n"
-                << "<|im_end|>\n"
-                << "<|im_start|>user\n"
-                << "IMPLEMENT PLAN:\n" << plan << "\n"
-                << "<|im_end|>\n"
-                << "<|im_start|>assistant\n";
-
-      mlir_raw = runInference(muscleCtx, muscleModel, muscle_ss.str(), 1024);
+      mlir_raw = runInference(muscleCtx, muscleModel, rapid_ss.str(), 1024);
     }
     
     llama_free(muscleCtx);
