@@ -95,7 +95,7 @@ public:
                << "2. Implement PD control logic.\n"
                << "<｜Assistant｜>";
       
-      plan = runInference(brainCtx, brainModel, brain_ss.str(), 512);
+      plan = runInference(brainCtx, brainModel, brain_ss.str(), 256); // REDUCED PREDICT
       llama_free(brainCtx);
 
       // --- STEP 2: THE MUSCLE (Scalar Implementation) ---
