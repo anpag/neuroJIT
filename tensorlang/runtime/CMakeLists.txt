@@ -5,6 +5,9 @@ add_library(TensorLangRuntime STATIC
   GeminiModelRunner.cpp
   LlamaCppModelRunner.cpp
   StrategyCache.cpp
+  StrategyGA.cpp
+  OptimizationWorker.cpp
+  # NEW FILES ADDED IN V2:
 )
 
 # Set absolute paths to pre-built llama libraries
@@ -33,3 +36,7 @@ target_link_libraries(TensorLangRuntime PRIVATE
   ${GGML_CPU_LIB}
   ${GGML_BASE_LIB}
 )
+
+# V2: Copy grammar files to build directory so runtime can find them
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/grammars
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

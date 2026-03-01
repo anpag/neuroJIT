@@ -1,0 +1,18 @@
+# Grammar for ControlStrategy JSON output.
+# The LLM is physically constrained to this format.
+# No MLIR, no prose, no markdown — only this JSON structure.
+
+root   ::= "{" ws members ws "}"
+
+members ::= kp ws "," ws ki ws "," ws kd ws "," ws tv ws "," ws tcmax
+
+kp    ::= "\"kp\""              ws ":" ws number
+ki    ::= "\"ki\""              ws ":" ws number
+kd    ::= "\"kd\""              ws ":" ws number
+tv    ::= "\"target_velocity\"" ws ":" ws number
+tcmax ::= "\"thrust_clamp_max\"" ws ":" ws pos-number
+
+number     ::= "-"? pos-number
+pos-number ::= [0-9]+ ("." [0-9]+)?
+
+ws ::= ([ \t\n\r])*

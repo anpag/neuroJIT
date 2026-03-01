@@ -3,107 +3,128 @@
 
 #include "tensorlang/Runtime/ModelRunner.h"
 #include "tensorlang/Runtime/StrategyCache.h"
+#include "tensorlang/Runtime/OptimizationStrategy.h"
+#include "tensorlang/Runtime/OptimizationWorker.h"
+#include "tensorlang/Runtime/StrategyGA.h"
+
 #include <string>
-#include <functional>
 #include <memory>
 #include <atomic>
-#include <csetjmp>
 #include <mutex>
+#include <vector>
 #include <unordered_map>
+
+// REMOVED: #include <csetjmp>
+// REASON: longjmp is undefined behavior across C++ stack frames with
+//         non-trivial destructors. Replaced with restartRequested flag.
 
 namespace mlir {
 namespace tensorlang {
 
 class JitRunner;
 
-/// A context object for JIT operations exposed to the runtime.
+/// Central context object. Singleton. Thread-safe for all public methods.
 class JitContext {
 public:
   static JitContext& getInstance();
 
+  // -----------------------------------------------------------------------
+  // JIT Runner registration
+  // -----------------------------------------------------------------------
   void registerRunner(JitRunner* runner);
   JitRunner* getRunner() const;
 
+  // -----------------------------------------------------------------------
+  // Model runner (LLM backend)
+  // -----------------------------------------------------------------------
   void setModelRunner(std::unique_ptr<ModelRunner> modelRunner);
   ModelRunner* getModelRunner() const;
-  
-  StrategyCache& getStrategyCache() { return strategyCache; }
 
-  // Helpers for reflection
+  // -----------------------------------------------------------------------
+  // Legacy strategy cache (kept for backward compatibility)
+  // -----------------------------------------------------------------------
+  StrategyCache& getStrategyCache() { return strategyCache_; }
+
+  // -----------------------------------------------------------------------
+  // Module IR reflection
+  // -----------------------------------------------------------------------
   void setModuleIR(const std::string& ir);
   std::string getModuleIR() const;
 
-  // Async Hot-Swap State
+  // -----------------------------------------------------------------------
+  // Hot-swap: atomic function pointer
+  // -----------------------------------------------------------------------
   void setOptimizedFunction(void* fnPtr);
   void* getOptimizedFunction() const;
-  
-  /// Tries to set isOptimizing to true. Returns true if successful (lock acquired).
-  bool tryStartOptimization();
-  void finishOptimization();
-  bool isOptimizingCurrently() const { return isOptimizing.load(); }
 
-  // Recovery Support
-  std::jmp_buf& getRecoveryPoint() { return recovery_point; }
-  
-  int getHealingAttempts() const { return healing_attempts.load(); }
-  void incrementHealingAttempts() { healing_attempts.fetch_add(1); }
-  void resetHealingAttempts() { healing_attempts.store(0); }
+  // -----------------------------------------------------------------------
+  // Restart protocol (replaces longjmp/setjmp)
+  // Set by tensorlang_assert_fail. Checked by the main run loop.
+  // -----------------------------------------------------------------------
+  void requestRestart(const std::string& newIR);
+  bool consumeRestartRequest(std::string& outNewIR);
 
-  // Performance Telemetry
-  void recordTelemetry(double impactVel, double latency) {
-    std::lock_guard<std::mutex> lock(statsMutex);
-    lastLatency = latency;
-    totalLatency += latency;
-    executionCount++;
-    
-    // Impact velocity (smaller is better/safer)
-    if (std::abs(impactVel) < std::abs(bestImpactVelocity)) {
-      bestImpactVelocity = impactVel;
-    }
-  }
+  // -----------------------------------------------------------------------
+  // Telemetry and fitness
+  // -----------------------------------------------------------------------
+  void recordResult(const SimulationResult& result);
+  SimulationResult getLastResult() const;
+  double getAverageScore() const;
+  double getBestScore() const;
+  const Individual& getBestIndividual() const;
 
-  double getBestImpactVelocity() const {
-    std::lock_guard<std::mutex> lock(statsMutex);
-    return bestImpactVelocity;
-  }
+  // -----------------------------------------------------------------------
+  // Async optimization worker
+  // -----------------------------------------------------------------------
+  OptimizationWorker& getWorker();
 
-  double getLastLatency() const { 
-    std::lock_guard<std::mutex> lock(statsMutex);
-    return lastLatency; 
-  }
-  double getAverageLatency() const {
-    std::lock_guard<std::mutex> lock(statsMutex);
-    return executionCount > 0 ? totalLatency / executionCount : 0.0;
-  }
+  // -----------------------------------------------------------------------
+  // Genetic algorithm
+  // -----------------------------------------------------------------------
+  StrategyGA& getGA();
 
-  // --- LOBE REGISTRY INTERFACE ---
-  void saveLobe(const std::string& name, const std::string& ir);
+  // -----------------------------------------------------------------------
+  // Lobe Registry: L1 (RAM) + L2 (Disk)
+  // -----------------------------------------------------------------------
+  void saveLobe(const std::string& name,
+                const std::string& ir,
+                const SimulationResult& result);
   std::string loadLobe(const std::string& name);
   bool hasLobe(const std::string& name);
+  /// Returns the SimulationResult stored with the lobe, or default if absent.
+  SimulationResult loadLobeResult(const std::string& name);
 
 private:
-  JitContext() = default;
-  JitRunner* runner = nullptr;
-  std::unique_ptr<ModelRunner> modelRunner;
-  std::string currentIR;
+  JitContext();
+  void initWorker();
 
-  // L1 Memory Cache for evolved lobes
-  std::unordered_map<std::string, std::string> lobeCache;
-  mutable std::mutex cacheMutex;
-  
-  std::atomic<void*> optimizedFunctionPtr{nullptr};
-  std::atomic<bool> isOptimizing{false};
-  std::atomic<int> healing_attempts{0};
+  JitRunner* runner_ = nullptr;
+  std::unique_ptr<ModelRunner> modelRunner_;
 
-  // Performance stats
-  mutable std::mutex statsMutex;
-  double lastLatency = 0.0;
-  double totalLatency = 0.0;
-  double bestImpactVelocity = 100.0; // Starting with high value (bad landing)
-  uint64_t executionCount = 0;
+  mutable std::mutex irMutex_;
+  std::string currentIR_;
 
-  std::jmp_buf recovery_point;
-  StrategyCache strategyCache;
+  std::atomic<void*> optimizedFunctionPtr_{nullptr};
+
+  // Restart state (replaces jmp_buf)
+  std::mutex restartMutex_;
+  bool restartPending_ = false;
+  std::string pendingIR_;
+
+  // Telemetry
+  mutable std::mutex statsMutex_;
+  std::vector<SimulationResult> history_;
+  Individual bestIndividual_;
+
+  // Subsystems
+  std::unique_ptr<OptimizationWorker> worker_;
+  std::unique_ptr<StrategyGA> ga_;
+  StrategyCache strategyCache_;
+
+  // L1 lobe cache
+  mutable std::mutex lobeMutex_;
+  std::unordered_map<std::string, std::string> lobeCache_;
+  std::unordered_map<std::string, SimulationResult> lobeResults_;
 };
 
 } // namespace tensorlang
