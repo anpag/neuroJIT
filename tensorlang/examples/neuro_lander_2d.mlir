@@ -19,7 +19,7 @@ module {
     return %zero : f32
   }
 
-  func.func @main() -> i32 {
+  func.func @sim_main() -> i32 {
     %dt           = arith.constant 0.1   : f32
     %g_vert       = arith.constant -1.62 : f32
     %noise_vert   = arith.constant 0.3   : f32

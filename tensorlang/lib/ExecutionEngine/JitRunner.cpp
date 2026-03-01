@@ -87,7 +87,7 @@ llvm::Error JitRunner::run(ModuleOp module) {
   auto llvmModule = translateModuleToLLVMIR(module, *llvmContext);
   if (!llvmModule) return llvm::make_error<llvm::StringError>("Translation failed", llvm::inconvertibleErrorCode());
   if (auto err = jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(llvmModule), std::move(llvmContext)))) return err;
-  return invoke("main").takeError();
+  return invoke("sim_main").takeError();
 }
 
 llvm::Expected<int> JitRunner::invoke(llvm::StringRef functionName) {
@@ -103,8 +103,36 @@ llvm::Expected<void*> JitRunner::lookup(llvm::StringRef name) {
   return (void*)(intptr_t)sym->getValue();
 }
 
+llvm::Error JitRunner::loadModule(ModuleOp module) {
+  PassManager pm(module.getContext());
+  pm.addPass(createVerifyLinearity());
+  pm.addPass(createConvertTensorLangToLinalgPass());
+  bufferization::OneShotBufferizationOptions options;
+  options.bufferizeFunctionBoundaries = true;
+  pm.addPass(bufferization::createOneShotBufferizePass(options));
+  pm.addPass(mlir::createConvertVectorToSCFPass());
+  pm.addPass(mlir::createConvertLinalgToLoopsPass());
+  pm.addPass(memref::createExpandStridedMetadataPass());
+  pm.addPass(createConvertSCFToCFPass());
+  pm.addPass(createConvertControlFlowToLLVMPass());
+  pm.addPass(createArithToLLVMConversionPass());
+  pm.addPass(createConvertFuncToLLVMPass());
+  pm.addPass(createFinalizeMemRefToLLVMConversionPass());
+  pm.addPass(createReconcileUnrealizedCastsPass());
+  if (failed(pm.run(module))) return llvm::make_error<llvm::StringError>("Optimization failed", llvm::inconvertibleErrorCode());
+  auto llvmContext = std::make_unique<llvm::LLVMContext>();
+  auto llvmModule = translateModuleToLLVMIR(module, *llvmContext);
+  if (!llvmModule) return llvm::make_error<llvm::StringError>("Translation failed", llvm::inconvertibleErrorCode());
+  
+  std::string llvm_ir_str;
+  llvm::raw_string_ostream llvm_os(llvm_ir_str);
+  llvmModule->print(llvm_os, nullptr);
+  llvm::errs() << "LLVM IR contains sim_main? " << (llvm_ir_str.find("sim_main") != std::string::npos ? "YES" : "NO") << "\n";
+
+  return jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(llvmModule), std::move(llvmContext)));
+}
+
 llvm::Error JitRunner::compile(ModuleOp module) {
-  g_last_error_msg = "";
   std::string diag_str;
   llvm::raw_string_ostream os(diag_str);
   auto handler = module->getContext()->getDiagEngine().registerHandler([&](mlir::Diagnostic &diag) {

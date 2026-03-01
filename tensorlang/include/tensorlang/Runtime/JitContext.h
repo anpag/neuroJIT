@@ -78,6 +78,9 @@ public:
   // -----------------------------------------------------------------------
   OptimizationWorker& getWorker();
 
+  void setOnlineOptimization(bool enabled) { onlineOptimizationEnabled_ = enabled; }
+  bool isOnlineOptimizationEnabled() const { return onlineOptimizationEnabled_; }
+
   // -----------------------------------------------------------------------
   // Genetic algorithm
   // -----------------------------------------------------------------------
@@ -112,6 +115,8 @@ private:
 
   mutable std::mutex irMutex_;
   std::string currentIR_;
+
+  bool onlineOptimizationEnabled_ = true;
 
   std::atomic<void*> optimizedFunctionPtr_{nullptr};
 

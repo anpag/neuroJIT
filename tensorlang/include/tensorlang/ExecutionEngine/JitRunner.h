@@ -45,6 +45,9 @@ public:
   /// This parses the MLIR, optimizes it, and adds it to the JIT.
   llvm::Error compileString(llvm::StringRef source);
 
+  /// Loads a module into the main dylib for execution
+  llvm::Error loadModule(ModuleOp module);
+
 private:
   JitRunner(std::unique_ptr<llvm::orc::LLJIT> jit);
 

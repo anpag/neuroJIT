@@ -23,6 +23,21 @@ static thread_local bool  g_settled = false;
 
 extern "C" {
 
+// ===========================================================================
+// RUNTIME CONTRACT BOUNDARY (MLIR -> C++)
+// ===========================================================================
+// The functions below are invoked directly from compiled MLIR modules.
+// They MUST NOT manage multi-episode state, evolution generation counting,
+// or optimization loop logic. Their responsibilities are strictly limited to:
+// 1. Timing and telemetry for the *current* episode.
+// 2. Safely signaling crashes (via restart requests) back to the host harness.
+// 3. I/O (printing status).
+// 
+// The host harness (e.g., EvolutionHarness.cpp) is exclusively responsible
+// for aggregating episode results, recording fitness into the GA, and advancing
+// evolution generations. DO NOT put GA updates or cross-episode bookkeeping here.
+// ===========================================================================
+
 // ---------------------------------------------------------------------------
 // Timer and telemetry
 // ---------------------------------------------------------------------------
@@ -54,7 +69,6 @@ void tensorlang_stop_timer(float final_v) {
   result.settlingTime    = static_cast<double>(g_settling_ticks);
 
   ctx.recordResult(result);
-  ctx.getGA().recordFitness(result);
 
   printf("[Telemetry] Score=%.2f | ImpactV=%.3f m/s | Fuel=%.1f | "
          "Ticks=%.0f | Elapsed=%.3fs | Best=%.2f\n",
@@ -74,7 +88,7 @@ void tensorlang_stop_timer(float final_v) {
   // Non-blocking: submit an optimization request to the background worker.
   // The simulation loop continues immediately — it does NOT wait for the LLM.
   static constexpr double kOptimizationTriggerScore = 60.0;
-  if (result.score() < kOptimizationTriggerScore && !ctx.getWorker().isBusy()) {
+  if (ctx.isOnlineOptimizationEnabled() && result.score() < kOptimizationTriggerScore && !ctx.getWorker().isBusy()) {
     // Ask the GA to propose the next strategy to try
     auto* runner = ctx.getModelRunner();
     mlir::tensorlang::ControlStrategy next =
@@ -126,7 +140,6 @@ void tensorlang_assert_fail(int64_t /*loc*/) {
   mlir::tensorlang::SimulationResult crashResult;
   crashResult.survived = false;
   ctx.recordResult(crashResult);
-  ctx.getGA().recordFitness(crashResult);
 
   printf("[Assert] Violation detected. Requesting restart via flag.\n");
 

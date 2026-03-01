@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
       restartCount++;
       printf("[NeuroJIT V2] Restart %d/%d\n", restartCount, (int)maxRestarts);
       if (tensorlang_compile(newIR.c_str()) != 0) continue;
-      auto result = jitRunner->invoke("main");
+      auto result = jitRunner->invoke("sim_main");
       if (!result) {
         exitCode = 1;
         break;
