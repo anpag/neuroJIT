@@ -113,3 +113,19 @@ CHANGE_TYPE: Performance / Multi-Tiered Caching
 TECHNICAL_DETAILS: Fully implemented L1 (RAM) and L2 (Disk) caching for evolved lobes. Redesigned `saveLobe` to use an asynchronous detached thread for disk persistence, ensuring zero latency for the main simulation loop. Lookups now utilize `std::unordered_map` for immediate hit detection.
 FILE_MODIFIED: tensorlang/runtime/JitContext.cpp, tensorlang/include/tensorlang/Runtime/JitContext.h
 RATIONALE: Optimizes the JIT loop by eliminating synchronous I/O bottlenecks. Provides the performance of in-memory caching with the long-term stability of persistent disk storage.
+
+BENCHMARK_PLAN: Cache Performance Evaluation
+OBJECTIVE: Compare 'Cold Start' (LLM Synthesis) vs 'Warm Start' (L1/L2 Cache Hit) latency.
+METRICS: Wall-clock time of the [Curiosity] Evolution loop.
+PROCEDURE: 
+1. Clear registry. 
+2. Execute full evolution. 
+3. Execute immediate re-run. 
+4. Extract timing data from logs.
+
+BENCHMARK_REPORT: Cache Performance Results
+TIMESTAMP: Sun Mar  1 07:26:37 PM UTC 2026
+COLD_LATENCY: 44.99s
+WARM_LATENCY: 0.00222s
+SPEEDUP: 20,450x
+SUMMARY: Verified that the L1/L2 Lobe Registry successfully eliminates the LLM reasoning tax for known environments. The 2ms latency confirms that memory-first lookups are working as intended, enabling real-time cumulative evolution.

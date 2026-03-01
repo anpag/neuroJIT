@@ -29,11 +29,15 @@ void tensorlang_stop_timer(float final_v) {
 
   // Phase 10: The Lobe Registry (Persistent Evolution)
   if (ctx.hasLobe("Stability_v1")) {
+    auto registry_start = std::chrono::high_resolution_clock::now();
     printf("[Registry] Found persistent lobe 'Stability_v1'. Bypassing R1 reasoning...\n");
     std::string cached_ir = ctx.loadLobe("Stability_v1");
     if (tensorlang_compile(cached_ir.c_str()) == 0) {
       void* fnPtr = tensorlang_get_symbol_address("get_thrust");
       if (fnPtr) {
+        auto registry_end = std::chrono::high_resolution_clock::now();
+        printf("[Registry] Bypass Successful! Latency: %.6f s\n", 
+               std::chrono::duration<double>(registry_end - registry_start).count());
         ctx.setOptimizedFunction(fnPtr);
         return; 
       }
