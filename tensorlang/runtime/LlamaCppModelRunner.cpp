@@ -57,34 +57,31 @@ public:
     llama_context* muscleCtx = createContext(muscleModel);
     if (!brainCtx || !muscleCtx) return "(error: context creation failed)";
 
-    // --- STEP 1: THE BRAIN (Modular Lobe Decomposition) ---
-    std::cout << "[Evolution] Brain (R1) decomposing into Modular Lobes..." << std::endl;
+    // --- STEP 1: THE BRAIN (Swarm Architecture & Cross-Breeding) ---
+    std::cout << "[Evolution] Brain (R1) analyzing swarm results for cross-breeding..." << std::endl;
     std::stringstream brain_ss;
     brain_ss << "<｜begin▁of▁sentence｜><｜User｜><think>\n"
-             << "I must break the control logic into 3 distinct functions (lobes) to ensure implementation stability. "
-             << "1. @lobe_memory: Handles tensor extraction. "
-             << "2. @lobe_logic: Calculates the thrust value. "
-             << "3. @get_thrust: The main entry point that calls the other lobes.\n"
+             << "I am evolving a swarm of 100 landers. Environment: Gravitational Turbulence (-0.5 to 0.5). "
+             << "Objective: Cross-breed the most efficient PD/PID control parameters. "
+             << "I will synthesize a 'Super Lobe' that is noise-resilient.\n"
              << "</think>\n"
-             << "MODULAR ARCHITECTURE PLAN:\n"
-             << "Decompose the stateful control logic into small, specialized functions.\n"
-             << "Current State: " << prompt << "\n"
+             << "SWARM EVOLUTION PLAN:\n"
+             << "1. Synthesize a noise-robust control architecture (Lobe).\n"
+             << "2. Use memory tensor to filter turbulence.\n"
+             << "Current IR: " << prompt << "\n"
              << "<｜Assistant｜>";
     
     std::string plan = runInference(brainCtx, brainModel, brain_ss.str(), 512);
     
     // --- STEP 2: THE MUSCLE ---
-    std::cout << "[Evolution] Muscle synthesizing Modular Nervous System..." << std::endl;
+    std::cout << "[Evolution] Muscle synthesizing noise-resilient Super Lobe..." << std::endl;
     std::stringstream muscle_ss;
     muscle_ss << "<|im_start|>system\n"
-              << "You are an MLIR Architect. Implement the plan using MULTIPLE functions.\n"
-              << "STRICT RULES:\n"
-              << "1. Use `@get_thrust(%arg0, %arg1, %arg2, %arg3) -> (f32, tensor<4xf32>)` as entry.\n"
-              << "2. Create helper functions for math and memory if requested.\n"
-              << "3. Return ONLY the func.func blocks.\n"
+              << "You are an MLIR Swarm Architect. Implement the noise-resilient Super Lobe.\n"
+              << "STRICT: Return ONLY the func.func blocks. Use multiple lobes if needed.\n"
               << "<|im_end|>\n"
               << "<|im_start|>user\n"
-              << "IMPLEMENT MODULAR PLAN:\n" << plan << "\n"
+              << "IMPLEMENT SWARM PLAN:\n" << plan << "\n"
               << "<|im_end|>\n"
               << "<|im_start|>assistant\n";
 

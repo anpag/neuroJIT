@@ -43,16 +43,42 @@ void tensorlang_stop_timer(float final_v) {
               << "to achieve a landing closer to -0.5 m/s with higher fuel efficiency.\n"
               << "Return ONLY the FULL MLIR module.\n\n" << ir;
     
+    auto evolution_start = std::chrono::high_resolution_clock::now();
     std::string response = runner->query(prompt_ss.str());
-    if (response.find("(error") == std::string::npos) {
-       printf("[Curiosity] New architecture received. Size: %zu bytes.\n", response.size());
-       if (tensorlang_compile(response.c_str()) == 0) {
-         void* fnPtr = tensorlang_get_symbol_address("get_thrust");
-         if (fnPtr) {
-           printf("[Curiosity] Evolution successful. New architecture synthesized.\n");
-           ctx.setOptimizedFunction(fnPtr);
-         }
-       }
+    
+    // Recursive Syntactic Self-Repair (Max 3 attempts)
+    for (int repair_attempt = 0; repair_attempt < 3; ++repair_attempt) {
+      if (response.find("(error") != std::string::npos) break;
+      
+      auto compile_start = std::chrono::high_resolution_clock::now();
+      printf("[Curiosity] Attempting to compile architecture (Repair attempt %d)...\n", repair_attempt);
+      
+      if (tensorlang_compile(response.c_str()) == 0) {
+        void* fnPtr = tensorlang_get_symbol_address("get_thrust");
+        if (fnPtr) {
+          auto evolution_end = std::chrono::high_resolution_clock::now();
+          double total_evolution_time = std::chrono::duration<double>(evolution_end - evolution_start).count();
+          
+          printf("[Curiosity] Evolution successful! Total Time: %.2f s (Attempts: %d)\n", 
+                 total_evolution_time, repair_attempt + 1);
+          ctx.setOptimizedFunction(fnPtr);
+          return; 
+        }
+      } else {
+        const char* err = tensorlang_get_last_jit_error();
+        printf("[Curiosity] Compilation failed in %.2f s. Capture Error: %s\n", 
+               std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - compile_start).count(), err);
+        
+        std::stringstream repair_prompt;
+        repair_prompt << "SYNTAX REPAIR MODE:\n"
+                      << "Your previous MLIR code failed to compile with this error:\n"
+                      << "--- ERROR ---\n" << err << "\n-------------\n"
+                      << "FIX the code and return the FULL module again.\n"
+                      << "BROKEN CODE:\n" << response;
+        
+        printf("[Curiosity] Feeding error back to the Architect for repair...\n");
+        response = runner->query(repair_prompt.str());
+      }
     }
   }
 }
@@ -64,6 +90,10 @@ void tensorlang_print_f32(float* data, int64_t rank, int64_t* shape) {
 void tensorlang_print_status(float h, float v) {
   printf("|     *     | Alt: %6.2f m, Vel: %6.2f m/s\n", h, v);
   fflush(stdout);
+}
+
+float tensorlang_get_random() {
+  return static_cast<float>(rand()) / static_cast<float>(RAND_MAX) - 0.5f;
 }
 
 char* tensorlang_get_ir() {
@@ -193,8 +223,9 @@ void tensorlang_assert_fail(int64_t loc) {
   auto& ctx = mlir::tensorlang::JitContext::getInstance();
   ctx.incrementHealingAttempts();
   
-  if (ctx.getHealingAttempts() > 3) {
+  if (ctx.getHealingAttempts() >= 10) {
     llvm::errs() << "[System 2] Self-healing attempted but failed to prevent crash. Manual intervention required.\n";
+
     exit(1);
   }
   llvm::errs() << "[System 2] CRASH IMMINENT! Violation detected (Attempt " << ctx.getHealingAttempts() << ").\n";

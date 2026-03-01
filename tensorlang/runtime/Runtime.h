@@ -15,6 +15,9 @@ void tensorlang_print_f32(float* data, int64_t rank, int64_t* shape);
 /// Prints the lander's status (Alt and Vel).
 void tensorlang_print_status(float h, float v);
 
+/// Returns a random float for noise simulation.
+float tensorlang_get_random();
+
 //===----------------------------------------------------------------------===//
 // Reflection & JIT Operations
 //===----------------------------------------------------------------------===//
@@ -29,6 +32,9 @@ int tensorlang_compile(const char* ir_string);
 
 /// Returns the address of a symbol in the JIT.
 void* tensorlang_get_symbol_address(const char* name);
+
+/// Returns the last JIT error message.
+const char* tensorlang_get_last_jit_error();
 
 /// Called when a tensorlang.assert fails.
 void tensorlang_assert_fail(int64_t loc);
