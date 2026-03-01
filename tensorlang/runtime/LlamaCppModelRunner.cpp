@@ -1,4 +1,5 @@
 #include "tensorlang/Runtime/ModelRunner.h"
+#include "tensorlang/Runtime/JitContext.h"
 #include "llama.h"
 #include <iostream>
 #include <vector>
@@ -77,23 +78,48 @@ public:
                 << "<think>\n"; // Force the model to start thinking
       mlir_raw = runInference(muscleCtx, muscleModel, repair_ss.str(), 1024);
     } else {
-      // --- STEP 1: RAPID SYNTHESIS (Qwen only for Gen 1) ---
-      std::cout << "[Evolution] Rapid Synthesis Mode: Routing directly to Muscle..." << std::endl;
-      std::stringstream rapid_ss;
-      rapid_ss << "<|im_start|>system\n"
-               << "You are an MLIR specialist. Evolve a scalar control system for 100 landers.\n"
-               << "Objective: Soft landing using PD control arithmetic.\n"
-               << "Return ONLY the func.func @get_thrust block.\n"
-               << "RULES:\n"
-               << "1. Use scalar f32 math.\n"
-               << "2. Use arith.constant, arith.addf, arith.mulf.\n"
-               << "<|im_end|>\n"
-               << "<|im_start|>user\n"
-               << "IMPLEMENT PD CONTROL:\n" << prompt << "\n"
-               << "<|im_end|>\n"
-               << "<|im_start|>assistant\n";
+      // --- STEP 1: CROSS-BREEDING BRAIN (R1) ---
+      std::cout << "[Evolution] Brain (R1) Cross-Breeding Logic from Registry..." << std::endl;
       
-      mlir_raw = runInference(muscleCtx, muscleModel, rapid_ss.str(), 1024);
+      // Load previous successful strategy for context
+      std::string parent_logic = JitContext::getInstance().loadLobe("Stability_v1");
+
+      llama_context* brainCtx = createContext(brainModel, 2048);
+      if (!brainCtx) {
+        llama_free(muscleCtx);
+        return "(error: brain context creation failed)";
+      }
+
+      std::stringstream brain_ss;
+      brain_ss << "<｜begin▁of▁sentence｜><｜User｜><think>\n"
+               << "I am performing genetic cross-breeding of control strategies. "
+               << "Parent Strategy: " << (parent_logic.empty() ? "None" : parent_logic) << "\n"
+               << "Objective: Synthesize an evolved 'Super Lobe' that improves upon the parent.\n"
+               << "</think>\n"
+               << "CROSS-BREEDING PLAN:\n"
+               << "1. Identify the core PD logic in the parent.\n"
+               << "2. Add derivative dampening to handle noise.\n"
+               << "Current Simulation Data: " << prompt << "\n"
+               << "<｜Assistant｜>";
+      
+      std::string plan = runInference(brainCtx, brainModel, brain_ss.str(), 256);
+      llama_free(brainCtx);
+
+      // --- STEP 2: THE MUSCLE (Scalar Implementation) ---
+      std::cout << "[Evolution] Muscle synthesizing Evolved Super Lobe..." << std::endl;
+      std::stringstream muscle_ss;
+      muscle_ss << "<|im_start|>system\n"
+                << "You are an MLIR specialist. Return ONLY the func.func @get_thrust block.\n"
+                << "RULES:\n"
+                << "1. Use scalar f32 math.\n"
+                << "<|im_end|>\n"
+                << "<|im_start|>user\n"
+                << "IMPLEMENT EVOLVED PLAN:\n" << plan << "\n"
+                << "<|im_end|>\n"
+                << "<|im_start|>assistant\n"
+                << "<think>\n";
+
+      mlir_raw = runInference(muscleCtx, muscleModel, muscle_ss.str(), 1024);
     }
     
     llama_free(muscleCtx);
