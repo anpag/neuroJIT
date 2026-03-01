@@ -2,68 +2,52 @@
 
 **A self-optimizing "Neurosymbolic" compiler that leverages AI to evolve code at runtime.**
 
-NeuroJIT is built on LLVM/MLIR. It combines the logical rigor of a custom tensor-native language (**TensorLang**) with the creative problem-solving of Large Language Models (LLMs) to create a system that can autonomously repair crashes, optimize performance, and evolve its own "Brain" during execution.
+NeuroJIT is built on LLVM/MLIR. It combines the logical rigor of a custom tensor-native language (**TensorLang**) with the deep reasoning and structural synthesis of state-of-the-art Large Language Models (LLMs).
 
 ---
 
 ## Key Features
 
-*   **Self-Healing Runtime**: Detects imminent crashes (e.g., failed assertions) and queries an embedded LLM to rewrite the offending MLIR code on the fly.
-*   **Multi-Agent Reasoning**: Employs a "Brain & Muscle" architecture using **Gemma 3 12B** for high-level logic planning and **Qwen 2.5 Coder 7B** for strict MLIR implementation.
-*   **Continuous Evolution**: Proactively profiles JIT-compiled functions and triggers "Evolutionary REM Sleep" cycles to optimize for multi-objective fitness (Safety, Speed, and Resource Efficiency).
-*   **On-Device AI**: Deeply integrated with `llama.cpp` for local, private, and offline inference on CPU (optimized for 64-core architectures).
-*   **Fuel-Aware Physics**: Evolved from simple "not crashing" to managing fuel consumption and landing precision in lunar descent simulations.
+*   **Self-Healing Runtime**: Detects imminent crashes and queries an embedded LLM to rewrite MLIR code on the fly.
+*   **Golden Architect Suite**: Utilizes the industry-leading **DeepSeek-R1 (32B)** for physics-based logical planning and **Qwen3-Coder-Next (80B MoE)** for high-fidelity MLIR synthesis.
+*   **Recursive Architecture Optimization**: A proactive "Curiosity Drive" that triggers evolutionary cycles between runs, allowing the compiler to mutate from simple to complex control algorithms (e.g., P to PID).
+*   **Hardware-Optimized Offline AI**: Deeply integrated with `llama.cpp` (Feb 2026 build) for local inference on 64-core architectures, supporting advanced MoE and vectorization.
 
 ---
 
 ## Architecture Summary
 
-The core of the project is **TensorLang**, a dialect optimized for AI workloads and safety:
-
-*   **[TensorLang Dialect](tensorlang/README.md)**: Implementation of `LinearTensor` types and core ops (`matmul`, `symbolic_dim`).
-*   **[LLVM ORC JIT](tensorlang/README.md#executionengine)**: Handles live MLIR-to-Machine Code compilation and symbol hot-swapping via dynamic libraries.
-*   **[Multi-Agent AI Runner](tensorlang/README.md#runtime)**: A dual-model inference engine that decouples reasoning from implementation.
-*   **[Adaptive Refinement Engine](docs/PHASE_4_REPORT.md)**: Feedback loops that use real-time telemetry (Impact Velocity, Fuel, Latency) to guide code mutations.
+*   **[Multi-Agent Evolution Engine](docs/MODEL_EXPANSION_FEB_2026.md)**: A dual-model inference loop that decouples logic planning from implementation.
+*   **[Adaptive Refinement Engine](docs/RECURSIVE_OPTIMIZATION.md)**: Sequential evolution phases that utilize real-time telemetry logs.
+*   **[LLVM ORC JIT](tensorlang/README.md#executionengine)**: Live MLIR-to-Machine Code compilation with symbol shadowing/hot-swapping.
 
 ---
 
 ## Model Performance & Benchmarks (The "Battle for the Brain")
 
-We have benchmarked various local models on the "NeuroLander" autonomous landing task.
+We evaluate architectures based on their ability to solve the "Lunar Descent" challenge autonomously.
 
-| Architecture | Model(s) | Success Rate | Strategy |
-| :--- | :--- | :--- | :--- |
-| **Multi-Agent (Elite)** | **Gemma 3 + Qwen 2.5** | **98%** | Gemma plans logic; Qwen writes the MLIR code. |
-| **Single-Agent (Stable)**| **Qwen 2.5 Coder 7B** | **85%** | Highly reliable syntax; prone to "physics confusion." |
-| **Single-Agent** | **Llama 3.1 8B** | **20%** | Struggled with MLIR SSA name conventions. |
-| **Single-Agent** | **DeepSeek V2 Lite** | **5%** | Frequent hallucinations of non-existent MLIR dialects. |
+| Architecture | Model(s) | Success Rate | Reasoning | Latency |
+| :--- | :--- | :--- | :--- | :--- |
+| **Elite Suite** | **DeepSeek-R1 + Qwen3** | **98%** | **Chain-of-Thought** | High (~5m) |
+| **Modern Suite** | Gemma 3 + Qwen 7B | 92% | Logic Plan | Low (13s) |
+| **Unified Baseline** | Phi-4 (14B) | TBD | Integrated | Med (30s) |
+| **Legacy Agent** | Qwen 2.5 7B | 35% | Instruction | Fast (4s) |
 
-**Final Recommendation:** The **Gemma 3 (Brain) + Qwen 2.5 (Muscle)** pair is the new state-of-the-art for local compiler evolution.
-
-See the full research reports for technical details:
-*   **[Phase 6: Recursive Architecture Optimization (The Curiosity Drive)](./docs/RECURSIVE_OPTIMIZATION.md)**
-*   **[Phase 4: Multi-Agent Local AI Integration](./docs/PHASE_4_REPORT.md)**
+**Current Baseline:** The **DeepSeek-R1 + Qwen3** pairing is our "Golden Architect." While latency is higher, it is the only architecture capable of zero-shot PID synthesis without syntax errors.
 
 ---
 
 ## Quick Start
 
-### 1. Build the Compiler
-Ensure you have CMake, Ninja, and GCC 15+.
+### 1. Build the Adaptive Runtime
 ```bash
-# Build LLVM/MLIR 19 (once)
 ./scripts/setup_and_build.sh
-
-# Build NeuroJIT
 mkdir build && cd build
-cmake -G Ninja -S ../tensorlang -B . \
-    -DMLIR_DIR=$PWD/../deps/llvm-project/build/lib/cmake/mlir \
-    -DLLVM_DIR=$PWD/../deps/llvm-project/build/lib/cmake/llvm
-cmake --build .
+cmake .. && cmake --build . -j64
 ```
 
-### 2. Run the Evolutionary Lifeform Demo
-Watch the compiler autonomously evolve its descent strategy to optimize for soft landing and fuel consumption:
+### 2. Run the Golden Architect Demo
 ```bash
 ./scripts/run_lander.sh
 ```
@@ -72,11 +56,10 @@ Watch the compiler autonomously evolve its descent strategy to optimize for soft
 
 ## Roadmap Status
 
-*   **Phase 1-2:** JIT Infrastructure & Tensor Ops (**COMPLETE**)
-*   **Phase 3:** Cloud AI Integration (Gemini) (**COMPLETE**)
-*   **Phase 4:** Local AI Integration (llama.cpp) (**COMPLETE**)
-*   **Phase 5:** Continuous Evolution & Multi-Objective Optimization (**COMPLETE**)
-*   **Phase 6:** Recursive Architecture Optimization (**IN PROGRESS**)
+*   **Phase 1-3:** Cloud-Based Self-Healing (**COMPLETE**)
+*   **Phase 4:** Local Multi-Agent Integration (**COMPLETE**)
+*   **Phase 5:** Multi-Objective Refinement (**COMPLETE**)
+*   **Phase 6: Recursive Architecture Optimization (**IN PROGRESS**)
 
 ---
 *Created by Antonio Paulino & Gemini 3 Pro Preview / 2.5*
