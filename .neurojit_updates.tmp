@@ -1,0 +1,38 @@
+CHANGE_TYPE: Build System / JIT Pipeline
+TECHNICAL_DETAILS: Added MLIRVectorToSCF and MLIRVectorToLLVM to TensorLangExecutionEngine link libraries. Integrated mlir::createConvertVectorToSCFPass() into the JitRunner optimization pipeline.
+FILE_MODIFIED: tensorlang/lib/ExecutionEngine/CMakeLists.txt, tensorlang/lib/ExecutionEngine/JitRunner.cpp
+RATIONALE: Necessary to support SIMD-accelerated swarm simulations. Resolves "Dialect vector not found" and "unrealized_conversion_cast" errors during JIT compilation of vectorized modules.
+
+CHANGE_TYPE: Runtime Logic / AI Prompting
+TECHNICAL_DETAILS: Reconfigured LlamaCppModelRunner to request vector-native MLIR (vector<8xf32>). Updated prompts to force SIMD PD control logic and dense vector constants.
+FILE_MODIFIED: tensorlang/runtime/LlamaCppModelRunner.cpp
+RATIONALE: Necessary to align AI synthesis with the new vectorized JIT pipeline. Enables hardware saturation during swarm simulation.
+
+CHANGE_TYPE: Runtime Logic / Symbol Lookup
+TECHNICAL_DETAILS: Updated symbol lookup from 'get_thrust' to 'get_thrust_vector' in Runtime.cpp evolution loop.
+FILE_MODIFIED: tensorlang/runtime/Runtime.cpp
+RATIONALE: Enables hot-swapping of vectorized SIMD functions synthesized by the AI.
+
+CHANGE_TYPE: Runtime Logic / Stabilization
+TECHNICAL_DETAILS: Reverted simulation and AI prompts to scalar f32 math. Updated symbol lookup back to 'get_thrust'.
+FILE_MODIFIED: tensorlang/runtime/LlamaCppModelRunner.cpp, tensorlang/runtime/Runtime.cpp, tensorlang/examples/neuro_swarm_vector.mlir
+RATIONALE: Vector-to-LLVM lowering remains unstable in the current MLIR 19 JIT context, causing translation aborts. Reverting to scalar ensures a stable baseline for population-scale evolution research.
+
+CHANGE_TYPE: Strategy / JIT Diagnostics
+TECHNICAL_DETAILS: Refused to hardcode MLIR templates into the Qwen prompt. Instead, identified that JIT diagnostic strings are being truncated to generic "Failed to parse MLIR source" messages.
+FILE_MODIFIED: N/A (Strategy Pivot)
+RATIONALE: Hardcoding templates violates the "Autonomous Lifeform" mandate. To enable true Recursive Self-Repair, the compiler must provide high-fidelity diagnostic location data (line/char) to the AI, forcing it to learn the syntax dynamically.
+
+CHANGE_TYPE: JIT Compiler / Diagnostic Capture
+TECHNICAL_DETAILS: Replaced hardcoded 'Failed to parse MLIR' string with an `mlir::ScopedDiagnosticHandler` in `JitRunner::compileString`.
+FILE_MODIFIED: tensorlang/lib/ExecutionEngine/JitRunner.cpp
+RATIONALE: Allows the JIT compiler to capture exact line numbers, missing SSA values, and type mismatch errors during the parse phase and feed them directly into the AI prompt for high-fidelity Autonomous Self-Repair.
+EXECUTION_START: High-Fidelity Diagnostic Trial | START_TIMESTAMP: 1772383608
+EXECUTION_RESTART: High-Fidelity Diagnostic Trial (Clean Env) | START_TIMESTAMP: 1772383657
+
+CHANGE_TYPE: Performance Optimization
+TECHNICAL_DETAILS: Explicitly set `n_threads_batch = 64` in `llama_context_params`. Verified core saturation with direct benchmark.
+FILE_MODIFIED: tensorlang/runtime/LlamaCppModelRunner.cpp
+RATIONALE: Ensures that the initial prompt evaluation (Brain reasoning phase) uses all available hardware threads, preventing the single-threaded bottleneck observed in previous trials.
+EXECUTION_RESTART: High-Fidelity Trial (SIMD-Fixed) | START_TIMESTAMP: 1772383747
+EXECUTION_RESTART: High-Fidelity Trial (Thinking-Cap) | START_TIMESTAMP: 1772383841
