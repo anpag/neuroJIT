@@ -67,3 +67,24 @@ EXECUTION_RESTART: Rapid Synthesis Trial | START_TIMESTAMP: 1772386629
 EXECUTION_RESTART: Rapid Synthesis V4 | START_TIMESTAMP: 1772386698
 EXECUTION_RESTART: Rapid Synthesis V5 | START_TIMESTAMP: 1772387613
 EXECUTION_RESTART: Rapid Synthesis V6 | START_TIMESTAMP: 1772387715
+EXECUTION_RESTART: Rapid Synthesis V7 | START_TIMESTAMP: 1772387818
+EXECUTION_RESTART: Rapid Synthesis V7 | START_TIMESTAMP: 1772387903
+
+CHANGE_TYPE: System Maintenance / Cleanup
+TECHNICAL_DETAILS: Forcefully terminated 12 orphaned 64-core inference processes (tensorlang-run) that were bypassing CLI session control due to nohup usage. Verified system state at 98.4% idle.
+FILE_MODIFIED: N/A
+RATIONALE: Orphaned processes were causing 100% core saturation and memory pressure, preventing reliable execution of new trials.
+EXECUTION_RESTART: Monitored Rapid Trial V8 | START_TIMESTAMP: 1772388102
+
+CHANGE_TYPE: Logic / Extraction Robustness
+TECHNICAL_DETAILS: Redesigning `extractAndWrap` to prioritize triple-backtick (markdown) boundaries. Implemented a fallback that scans for the first 'module' or 'func.func' marker and strips all conversational preambles (e.g., 'The corrected code is...').
+FILE_MODIFIED: tensorlang/runtime/LlamaCppModelRunner.cpp
+RATIONALE: Qwen (7B) often includes conversational context despite 'Return ONLY code' instructions. This context (e.g., 'The...') was causing JIT 'unknown op' errors because the parser attempted to treat conversational English as MLIR dialect.
+EXECUTION_RESTART: Monitored Trial V9 (Robust Extract) | START_TIMESTAMP: 1772388230
+
+EXECUTION_REPORT: Final Phase 9 Monitored Trial (V9)
+TIMESTAMP: Sun Mar  1 06:04:46 PM UTC 2026
+RESULT: SUCCESSFUL_EVOLUTION
+TOTAL_TIME: 44.83s
+ATTEMPTS: 3
+SUMMARY: Successfully integrated ScopedDiagnosticHandler and CoT-Enabled Fast-Repair Bypass. Qwen resolved recursive syntax errors using precise line/col feedback. Core saturation at 100% verified.

@@ -136,9 +136,12 @@ private:
       std::string piece(buf, n);
       ss << piece;
       
-      // PROACTIVE TERMINATION: If we see the closing brace of the main function, stop.
+      // PROACTIVE TERMINATION: Stop at closing brace OR hard length limit
       if (piece.find("}") != std::string::npos && ss.str().find("func.func") != std::string::npos) {
           break; 
+      }
+      if (ss.str().size() > 500) {
+          break; // Hard limit for conciseness
       }
 
       batch = llama_batch_get_one(&id, 1);
@@ -149,22 +152,32 @@ private:
   }
 
   std::string extractAndWrap(std::string result) {
-    // 1. Strip Thought Blocks
-    size_t r1_end = result.find("</think>");
-    if (r1_end != std::string::npos) result = result.substr(r1_end + 8);
-    
-    // 2. Extract FIRST func.func block aggressively
-    size_t pos = result.find("func.func");
-    if (pos != std::string::npos) {
-        size_t end_brace = result.find("}", pos);
-        if (end_brace != std::string::npos) {
-            std::stringstream ss;
-            ss << "module {\n" << result.substr(pos, end_brace - pos + 1) << "\n}\n";
-            return ss.str();
+    // 1. Prioritize Triple Backticks (Markdown Blocks)
+    size_t start_ticks = result.find("```");
+    if (start_ticks != std::string::npos) {
+        size_t next_line = result.find("\n", start_ticks);
+        if (next_line != std::string::npos) {
+            size_t end_ticks = result.find("```", next_line);
+            if (end_ticks != std::string::npos) {
+                return result.substr(next_line + 1, end_ticks - next_line - 1);
+            }
         }
     }
     
-    return result; // Fallback to raw if no structure found
+    // 2. Fallback: Search for 'module' or 'func.func' and strip everything before it
+    size_t pos = result.find("module");
+    if (pos == std::string::npos) pos = result.find("func.func");
+    
+    if (pos != std::string::npos) {
+        std::string stripped = result.substr(pos);
+        // If it starts with func.func, wrap it in a module
+        if (stripped.find("func.func") == 0) {
+            return "module {\n" + stripped + "\n}\n";
+        }
+        return stripped;
+    }
+    
+    return result; 
   }
 };
 
