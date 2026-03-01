@@ -133,7 +133,14 @@ private:
       if (llama_vocab_is_eog(vocab, id)) break;
       char buf[256];
       int n = llama_token_to_piece(vocab, id, buf, sizeof(buf), 0, true);
-      ss << std::string(buf, n);
+      std::string piece(buf, n);
+      ss << piece;
+      
+      // PROACTIVE TERMINATION: If we see the closing brace of the main function, stop.
+      if (piece.find("}") != std::string::npos && ss.str().find("func.func") != std::string::npos) {
+          break; 
+      }
+
       batch = llama_batch_get_one(&id, 1);
       if (llama_decode(ctx, batch)) break;
     }
