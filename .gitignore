@@ -21,3 +21,5 @@ Makefile
 .DS_Store
 .env
 .neurojit_updates.tmp
+*.gguf
+*.tar.xz

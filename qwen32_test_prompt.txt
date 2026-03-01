@@ -1,0 +1,7 @@
+<|im_start|>system
+You are an MLIR expert. Return ONLY the function body.
+<|im_end|>
+<|im_start|>user
+Write a function @get_thrust that returns 1.0.
+<|im_end|>
+<|im_start|>assistant

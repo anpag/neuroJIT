@@ -23,17 +23,17 @@ module {
     %c3_gen = arith.constant 3 : index // 3 Generations of Evolution
 
     scf.for %gen = %c0_gen to %c3_gen step %c1_gen {
-        %dt = arith.constant 0.1 : f32
+        %dt = arith.constant 0.5 : f32
         %gravity = arith.constant -1.62 : f32
         
         // Initial State
         %h0 = arith.constant 100.0 : f32
         %v0 = arith.constant -10.0 : f32
-        %f0 = arith.constant 500.0 : f32 // Starting Fuel
+        %f0 = arith.constant 500.0 : f32 
         
         %c0_idx = arith.constant 0 : index
         %c1_idx = arith.constant 1 : index
-        %c200_idx = arith.constant 200 : index
+        %c50_idx = arith.constant 50 : index // Faster simulation
         %c0_f32 = arith.constant 0.0 : f32
         %c_safe_speed = arith.constant -5.0 : f32
         %true = arith.constant 1 : i1
@@ -41,7 +41,7 @@ module {
         func.call @tensorlang_start_timer() : () -> ()
 
         // Survival Loop
-        %res:3 = scf.for %i = %c0_idx to %c200_idx step %c1_idx 
+        %res:3 = scf.for %i = %c0_idx to %c50_idx step %c1_idx 
             iter_args(%h=%h0, %v=%v0, %fuel=%f0) -> (f32, f32, f32) {
             
             // 1. Brain Processing

@@ -1,0 +1,8 @@
+top - 16:46:53 up 1 day, 21:48,  9 users,  load average: 120.36, 87.07, 51.49
+Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 99.0 us,  0.6 sy,  0.0 ni,  0.3 id,  0.0 wa,  0.0 hi,  0.0 si,  0.1 st 
+MiB Mem : 120732.9 total,   1015.7 free,  52768.7 used,  68270.0 buff/cache     
+MiB Swap: 117340.0 total, 114338.6 free,   3001.4 used.  67964.1 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 766585 antonio+  20   0    7196   3588   3256 S   0.0   0.0   0:00.00 bash

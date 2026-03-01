@@ -1,0 +1,44 @@
+top - 16:41:41 up 1 day, 21:43,  9 users,  load average: 48.71, 33.19, 26.40
+Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  8.8 us,  0.8 sy,  0.0 ni, 90.4 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st 
+MiB Mem : 120732.9 total,   1519.4 free,  28293.4 used,  92254.5 buff/cache     
+MiB Swap: 117340.0 total, 114351.1 free,   2988.9 used.  92439.5 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 765394 antonio+  20   0    7196   3612   3280 S   0.0   0.0   0:00.00 bash
+
+top - 16:41:44 up 1 day, 21:43,  9 users,  load average: 48.71, 33.19, 26.40
+Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  7.2 us,  1.5 sy,  0.0 ni, 91.2 id,  0.0 wa,  0.0 hi,  0.0 si,  0.1 st 
+MiB Mem : 120732.9 total,    903.7 free,  32298.3 used,  88864.1 buff/cache     
+MiB Swap: 117340.0 total, 114349.9 free,   2990.1 used.  88434.6 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 765394 antonio+  20   0    7196   3612   3280 S   0.0   0.0   0:00.00 bash
+
+top - 16:41:47 up 1 day, 21:43,  9 users,  load average: 45.21, 32.72, 26.29
+Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
+%Cpu(s):  7.7 us,  0.9 sy,  0.0 ni, 91.3 id,  0.0 wa,  0.0 hi,  0.0 si,  0.1 st 
+MiB Mem : 120732.9 total,    986.1 free,  42663.5 used,  78410.5 buff/cache     
+MiB Swap: 117340.0 total, 114343.9 free,   2996.1 used.  78069.4 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 765394 antonio+  20   0    7196   3612   3280 S   0.0   0.0   0:00.00 bash
+
+top - 16:41:50 up 1 day, 21:43,  9 users,  load average: 45.21, 32.72, 26.29
+Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 11.1 us,  0.5 sy,  0.0 ni, 88.3 id,  0.0 wa,  0.0 hi,  0.0 si,  0.1 st 
+MiB Mem : 120732.9 total,    748.5 free,  46892.9 used,  74414.7 buff/cache     
+MiB Swap: 117340.0 total, 114339.9 free,   3000.1 used.  73839.9 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 765394 antonio+  20   0    7196   3612   3280 S   0.0   0.0   0:00.00 bash
+
+top - 16:41:53 up 1 day, 21:43,  9 users,  load average: 42.39, 32.34, 26.20
+Tasks:   1 total,   0 running,   1 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 12.9 us,  0.4 sy,  0.0 ni, 86.5 id,  0.0 wa,  0.0 hi,  0.1 si,  0.1 st 
+MiB Mem : 120732.9 total,    747.5 free,  46893.8 used,  74414.8 buff/cache     
+MiB Swap: 117340.0 total, 114339.9 free,   3000.1 used.  73839.1 avail Mem 
+
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+ 765394 antonio+  20   0    7196   3612   3280 S   0.0   0.0   0:00.00 bash

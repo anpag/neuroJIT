@@ -3,7 +3,7 @@ module {
   func.func private @tensorlang_assert_fail(i64)
   func.func private @tensorlang_print_status(f32, f32)
   func.func private @tensorlang_start_timer()
-  func.func private @tensorlang_stop_timer()
+  func.func private @tensorlang_stop_timer(f32)
 
   // --- THE PILOT (System 1) ---
   // Currently: Terrible pilot. Does nothing.
@@ -60,7 +60,7 @@ module {
         scf.yield %h_new, %v_new : f32, f32
     }
 
-    func.call @tensorlang_stop_timer() : () -> ()
+    func.call @tensorlang_stop_timer(%final_res#1) : (f32) -> ()
     
     return %c0_i32 : i32
   }
