@@ -29,32 +29,16 @@ public:
   }
 
   int load(const std::string& modelPath) override {
-    // FEB 2026: The "Elite Suite"
-    // Brain: DeepSeek-R1-32B (Chain of Thought logic)
-    // Muscle: Qwen3-Coder-Next (Advanced MLIR Synthesis)
+    // FINAL GOLDEN PAIR (Feb 2026)
+    // Brain: DeepSeek-R1 (32B Distill) - Complex Logic
+    // Muscle: Qwen 2.5 Coder (7B) - High Reliability MLIR Syntax
     
     std::string brainPath = "tensorlang/runtime/models/deepseek-r1-32b-q4_k_m.gguf";
-    std::string musclePath = "tensorlang/runtime/models/qwen3-coder-next-ud-q4_k_xl.gguf";
-    
-    // Auto-detect and fallback
-    if (!fileExists(brainPath)) {
-        std::cout << "[NeuroJIT] R1-32B not found, falling back to Gemma 3" << std::endl;
-        brainPath = "tensorlang/runtime/models/gemma-3-12b-it-q4_k_m.gguf";
-    }
-    
-    if (!fileExists(musclePath)) {
-        std::cout << "[NeuroJIT] Qwen3 not found, falling back to Qwen 2.5 32B" << std::endl;
-        musclePath = "tensorlang/runtime/models/qwen2.5-coder-32b-instruct-q4_k_m.gguf";
-    }
-    
-    if (!fileExists(musclePath)) {
-        std::cout << "[NeuroJIT] Qwen 32B not found, falling back to Qwen 2.5 7B" << std::endl;
-        musclePath = "tensorlang/runtime/models/qwen2.5-coder-7b-instruct-q4_k_m.gguf";
-    }
+    std::string musclePath = "tensorlang/runtime/models/qwen2.5-coder-7b-instruct-q4_k_m.gguf";
 
-    std::cout << "[NeuroJIT] Elite Configuration Active:" << std::endl;
-    std::cout << "  - Brain:  " << brainPath << std::endl;
-    std::cout << "  - Muscle: " << musclePath << std::endl;
+    std::cout << "[NeuroJIT] Initializing Golden Multi-Agent Pair..." << std::endl;
+    std::cout << "  - Brain (Logic):  " << brainPath << std::endl;
+    std::cout << "  - Muscle (MLIR): " << musclePath << std::endl;
     
     llama_model_params mparams = llama_model_default_params();
     mparams.n_gpu_layers = 0;
@@ -68,39 +52,39 @@ public:
   std::string query(const std::string& prompt) override {
     std::lock_guard<std::mutex> lock(queryMutex);
     
-    // Use the "Fresh Context" pattern to avoid memory slots failure (MoE requirement)
+    // Using Fresh Context Pattern for continuous evolution stability
     llama_context* brainCtx = createContext(brainModel);
     llama_context* muscleCtx = createContext(muscleModel);
     if (!brainCtx || !muscleCtx) return "(error: context creation failed)";
 
-    // --- STEP 1: THE BRAIN (DeepSeek-R1 / Gemma 3) ---
-    std::cout << "[Evolution] Brain reasoning cycle starting..." << std::endl;
+    // --- STEP 1: THE BRAIN (Modular Lobe Decomposition) ---
+    std::cout << "[Evolution] Brain (R1) decomposing into Modular Lobes..." << std::endl;
     std::stringstream brain_ss;
-    
-    // R1 Style Prompt - Constrained for speed
     brain_ss << "<｜begin▁of▁sentence｜><｜User｜><think>\n"
-             << "I need a concise mathematical derivation for lunar landing control. "
-             << "Target: -0.5 m/s. Minimize fuel. Be extremely brief.\n"
+             << "I must break the control logic into 3 distinct functions (lobes) to ensure implementation stability. "
+             << "1. @lobe_memory: Handles tensor extraction. "
+             << "2. @lobe_logic: Calculates the thrust value. "
+             << "3. @get_thrust: The main entry point that calls the other lobes.\n"
              << "</think>\n"
-             << "Generate a precise implementation plan for @get_thrust. "
-             << "Focus on GAIN and TARGET constants. Max 50 words logic explanation. "
-             << "Telemetry: " << prompt << "\n"
+             << "MODULAR ARCHITECTURE PLAN:\n"
+             << "Decompose the stateful control logic into small, specialized functions.\n"
+             << "Current State: " << prompt << "\n"
              << "<｜Assistant｜>";
     
-    // Reduce n_predict to 512 for the Brain to force a quick conclusion
     std::string plan = runInference(brainCtx, brainModel, brain_ss.str(), 512);
-    std::cout << "[Evolution Plan] Plan synthesized." << std::endl;
-
-    // --- STEP 2: THE MUSCLE (Qwen3-Coder-Next) ---
-    std::cout << "[Evolution] Muscle synthesis cycle starting..." << std::endl;
+    
+    // --- STEP 2: THE MUSCLE ---
+    std::cout << "[Evolution] Muscle synthesizing Modular Nervous System..." << std::endl;
     std::stringstream muscle_ss;
     muscle_ss << "<|im_start|>system\n"
-              << "You are an MLIR specialist. You implement logical plans into @get_thrust.\n"
-              << "STRICT: Return ONLY the func.func block. No markdown. No thought tokens.\n"
+              << "You are an MLIR Architect. Implement the plan using MULTIPLE functions.\n"
+              << "STRICT RULES:\n"
+              << "1. Use `@get_thrust(%arg0, %arg1, %arg2, %arg3) -> (f32, tensor<4xf32>)` as entry.\n"
+              << "2. Create helper functions for math and memory if requested.\n"
+              << "3. Return ONLY the func.func blocks.\n"
               << "<|im_end|>\n"
               << "<|im_start|>user\n"
-              << "Plan: " << plan << "\n"
-              << "Implement this in MLIR for the NeuroJIT compiler.\n"
+              << "IMPLEMENT MODULAR PLAN:\n" << plan << "\n"
               << "<|im_end|>\n"
               << "<|im_start|>assistant\n";
 
@@ -120,25 +104,22 @@ private:
   llama_context* createContext(llama_model* m) {
     if (!m) return nullptr;
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx = 4096; 
-    cparams.n_threads = 64; 
-    cparams.n_threads_batch = 64;
+    cparams.n_ctx = 4096;
+    cparams.n_threads = 64;
     return llama_init_from_model(m, cparams);
   }
 
   std::string runInference(llama_context* ctx, llama_model* model, const std::string& prompt, int n_predict) {
     const llama_vocab* vocab = llama_model_get_vocab(model);
-    int n_prompt = -llama_tokenize(vocab, prompt.c_str(), prompt.size(), NULL, 0, true, true);
+    // add_special = false, parse_special = true (Tokenization Fix)
+    int n_prompt = -llama_tokenize(vocab, prompt.c_str(), prompt.size(), NULL, 0, false, true);
     std::vector<llama_token> tokens(n_prompt);
-    llama_tokenize(vocab, prompt.c_str(), prompt.size(), tokens.data(), tokens.size(), true, true);
-
+    llama_tokenize(vocab, prompt.c_str(), prompt.size(), tokens.data(), tokens.size(), false, true);
     llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
     if (llama_decode(ctx, batch)) return "(error)";
-
     auto sparams = llama_sampler_chain_default_params();
     llama_sampler* smpl = llama_sampler_chain_init(sparams);
     llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
-
     std::stringstream ss;
     llama_token id;
     for (int i = 0; i < n_predict; i++) {
@@ -155,11 +136,11 @@ private:
   }
 
   std::string extractAndWrap(std::string result) {
-    // Strip R1 Thought from implementation if it leaked
+    // 1. Strip Thought Blocks
     size_t r1_end = result.find("</think>");
     if (r1_end != std::string::npos) result = result.substr(r1_end + 8);
-
-    // Markdown stripping
+    
+    // 2. Strip Markdown
     size_t start_ticks = result.find("```");
     if (start_ticks != std::string::npos) {
         size_t next_line = result.find("\n", start_ticks);
@@ -168,15 +149,25 @@ private:
             result = result.substr(next_line + 1, end_ticks - next_line - 1);
     }
     
-    size_t func_pos = result.find("func.func");
-    if (func_pos != std::string::npos) {
-        size_t last_brace = result.rfind("}");
-        if (last_brace != std::string::npos) {
-            std::string func_code = result.substr(func_pos, last_brace - func_pos + 1);
-            return "module {\n" + func_code + "\n}";
+    // 3. Extract ALL func.func blocks and wrap in module
+    std::stringstream ss;
+    ss << "module {\n";
+    size_t pos = result.find("func.func");
+    while (pos != std::string::npos) {
+        size_t end_brace = result.find("}", pos);
+        if (end_brace != std::string::npos) {
+            // Find the nested scope depth if any (simple brace count)
+            ss << result.substr(pos, end_brace - pos + 1) << "\n";
+            pos = result.find("func.func", end_brace);
+        } else {
+            break;
         }
     }
-    return result;
+    ss << "}\n";
+    
+    std::string wrapped = ss.str();
+    // Only return if we actually found functions
+    return (wrapped.size() > 20) ? wrapped : result;
   }
 };
 

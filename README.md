@@ -1,65 +1,35 @@
 # NeuroJIT
 
-**A self-optimizing "Neurosymbolic" compiler that leverages AI to evolve code at runtime.**
+**A self-optimizing "Neurosymbolic" compiler that evolves a linked nervous system at runtime.**
 
-NeuroJIT is built on LLVM/MLIR. It combines the logical rigor of a custom tensor-native language (**TensorLang**) with the deep reasoning and structural synthesis of state-of-the-art Large Language Models (LLMs).
+NeuroJIT is built on LLVM/MLIR. It combines the logical rigor of **TensorLang** with a multi-agent architectural loop that synthesizes specialized mental "Lobes" to solve complex physical and computational challenges autonomously.
+
+---
+
+## The "Modular Lobe" Breakthrough
+
+We have transitioned from simple code repair to **Recursive Modular Synthesis**. The system no longer writes monolithic functions; it builds a linked graph of specialized functions (lobes) that cooperate to form a higher-order intelligence.
+
+*   **[Comparative Evolution Report](docs/COMPARATIVE_EVOLUTION.md)**: A deep dive into how Modular Lobes solved the "Complexity Wall" and achieved 98% reliability.
+*   **[February 2026 Model Expansion](docs/MODEL_EXPANSION_FEB_2026.md)**: Benchmarks for the DeepSeek-R1 "Golden Architect" suite.
 
 ---
 
 ## Key Features
 
-*   **Self-Healing Runtime**: Detects imminent crashes and queries an embedded LLM to rewrite MLIR code on the fly.
-*   **Golden Architect Suite**: Utilizes the industry-leading **DeepSeek-R1 (32B)** for physics-based logical planning and **Qwen3-Coder-Next (80B MoE)** for high-fidelity MLIR synthesis.
-*   **Recursive Architecture Optimization**: A proactive "Curiosity Drive" that triggers evolutionary cycles between runs, allowing the compiler to mutate from simple to complex control algorithms (e.g., P to PID).
-*   **Hardware-Optimized Offline AI**: Deeply integrated with `llama.cpp` (Feb 2026 build) for local inference on 64-core architectures, supporting advanced MoE and vectorization.
-
----
-
-## Architecture Summary
-
-*   **[Multi-Agent Evolution Engine](docs/MODEL_EXPANSION_FEB_2026.md)**: A dual-model inference loop that decouples logic planning from implementation.
-*   **[Adaptive Refinement Engine](docs/RECURSIVE_OPTIMIZATION.md)**: Sequential evolution phases that utilize real-time telemetry logs.
-*   **[LLVM ORC JIT](tensorlang/README.md#executionengine)**: Live MLIR-to-Machine Code compilation with symbol shadowing/hot-swapping.
-
----
-
-## Model Performance & Benchmarks (The "Battle for the Brain")
-
-We evaluate architectures based on their ability to solve the "Lunar Descent" challenge autonomously.
-
-| Architecture | Model(s) | Success Rate | Reasoning | Latency |
-| :--- | :--- | :--- | :--- | :--- |
-| **Elite Suite** | **DeepSeek-R1 + Qwen3** | **98%** | **Chain-of-Thought** | High (~5m) |
-| **Modern Suite** | Gemma 3 + Qwen 7B | 92% | Logic Plan | Low (13s) |
-| **Unified Baseline** | Phi-4 (14B) | TBD | Integrated | Med (30s) |
-| **Legacy Agent** | Qwen 2.5 7B | 35% | Instruction | Fast (4s) |
-
-**Current Baseline:** The **DeepSeek-R1 + Qwen3** pairing is our "Golden Architect." While latency is higher, it is the only architecture capable of zero-shot PID synthesis without syntax errors.
-
----
-
-## Quick Start
-
-### 1. Build the Adaptive Runtime
-```bash
-./scripts/setup_and_build.sh
-mkdir build && cd build
-cmake .. && cmake --build . -j64
-```
-
-### 2. Run the Golden Architect Demo
-```bash
-./scripts/run_lander.sh
-```
+*   **Modular Nervous System**: Decomposes complex logic into specialized MLIR lobes (e.g., Memory, Math, Logic).
+*   **Stateful Intelligence**: Utilizes persistent memory tensors (`tensor<4xf32>`) to maintain cross-tick context, enabling PID and Integral control.
+*   **Multi-Agent "Golden Architect"**: Powered by **DeepSeek-R1 (32B)** for logical planning and **Qwen 2.5 Coder (7B)** for high-fidelity synthesis.
+*   **Continuous Curiosity**: Proactively evolves its own architecture during "REM Sleep" cycles between execution runs.
 
 ---
 
 ## Roadmap Status
 
-*   **Phase 1-3:** Cloud-Based Self-Healing (**COMPLETE**)
-*   **Phase 4:** Local Multi-Agent Integration (**COMPLETE**)
-*   **Phase 5:** Multi-Objective Refinement (**COMPLETE**)
-*   **Phase 6: Recursive Architecture Optimization (**IN PROGRESS**)
+*   **Phase 1-5:** Single-Agent to Multi-Agent Transition (**COMPLETE**)
+*   **Phase 6:** Stateful Memory & The Complexity Wall (**COMPLETE**)
+*   **Phase 7:** Modular Lobe Synthesis & Functional Decomposition (**COMPLETE**)
+*   **Phase 8: Swarm Intelligence & Lobe Cross-Breeding (**IN PROGRESS**)
 
 ---
 *Created by Antonio Paulino & Gemini 3 Pro Preview / 2.5*
