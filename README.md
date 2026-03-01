@@ -1,108 +1,83 @@
-# NeuroJIT: The Autonomous Neurosymbolic Compiler
+# The NeuroJIT Framework: An Autonomous Neurosymbolic Compilation Pipeline
 
-**An autonomous compiler system designed to perform runtime recovery and dynamic optimization via integrated Large Language Models (LLMs).**
+## 1. Abstract / Executive Summary
+The NeuroJIT Framework introduces an autonomous compiler architecture capable of performing dynamic optimization and runtime error recovery through the integration of Large Language Models (LLMs). By synthesizing the logical structure of a custom, tensor-native MLIR dialect (TensorLang) with the generative capabilities of localized inference engines, the system achieves stateful, recursive syntactic self-repair. Recent advancements have established a multi-tiered persistent memory hierarchy for synthesized machine code, reducing time-to-intelligence acquisition latency by multiple orders of magnitude. The pipeline operates entirely offline, utilizing a 64-core hardware foundation to achieve continuous SIMD-aligned evaluation and optimization of dynamic control strategies.
 
-NeuroJIT is an autonomous compiler system built on the LLVM/MLIR infrastructure. It integrates the logical structure of a custom tensor-native language (TensorLang) with the generative capabilities of Large Language Models (LLMs) to dynamically evolve its execution architecture at runtime.
+## 2. Architectural Specification
+The infrastructure is constructed upon the LLVM/MLIR 19.x compilation stack and an embedded local inference engine (`llama.cpp`).
 
----
+### 2.1 Compilation and Intermediate Representation
+*   **The Dialect (TensorLang):** A specialized MLIR dialect engineered for machine learning operations and linear control systems. It is lowered directly to LLVM IR through standard MLIR passes.
+*   **The Execution Engine:** Managed via an LLVM ORC JIT interface. The engine supports asynchronous, lock-free function pointer hot-swapping during active simulation cycles.
+*   **High-Fidelity Diagnostics:** The parsing phase utilizes a `mlir::ScopedDiagnosticHandler` to intercept raw compilation diagnostics, capturing precise lexical location data (`loc(line:col)`) for subsequent recursive self-repair loops.
 
-## The Vision: Autonomous Code Evolution
-In traditional software paradigms, compiled code remains static. NeuroJIT introduces dynamic, autonomous evolution:
-*   **Autonomous Optimization:** The compiler identifies inefficient execution paths at runtime, queries the Reasoning Agent for an optimized intermediate representation, and hot-swaps the execution pointer without halting the process.
-*   **Autonomous Runtime Recovery:** When a `tensorlang.assert` violation occurs (e.g., during a flight simulation), the runtime pauses, queries the Synthesis Engine for a resolution, applies the generated MLIR patch, and resumes execution.
-*   **Architectural Introspection:** Rather than relying on static heuristic passes for diverse CPU architectures, the system introspects its own intermediate representation to evolve hardware-specific optimizations dynamically.
+### 2.2 The Asymmetric Inference Pipeline
+To mitigate reasoning latency and optimize code generation accuracy, inference is decoupled into a dual-agent architecture:
+*   **Reasoning Agent (Architectural Derivation Engine):** Responsible for high-level strategy formulation. Utilizing a 32B parameter model (e.g., DeepSeek-R1 Distill Qwen), this agent parses environmental states to derive advanced control logic (e.g., PD/PID).
+*   **Synthesis Engine (MLIR Implementation Agent):** Responsible for translating derived architectures into valid MLIR syntax. Operating a 7B parameter model (e.g., Qwen 2.5 Coder), it conducts rapid, iterative syntax generation.
 
-> Historical Note: This project was developed to investigate MLIR, LLVM, and the computational challenges associated with automated machine code generation.
+### 2.3 Persistent Memory Hierarchy
+Synthesized logic is preserved via a multi-tiered object registry to bypass redundant reasoning operations:
+*   **L1 Cache (Volatile):** Implemented via `std::unordered_map` for nanosecond-latency pointer retrieval within the active process memory space.
+*   **L2 Registry (Non-Volatile):** A localized filesystem persistence layer (`~/.neurojit/registry/`) enabling cumulative intelligence across distinct execution sessions. Synchronization is managed via an asynchronous write-back mechanism to eliminate simulation latency spikes.
 
----
+## 3. Methodology
 
-## System Architecture
-1.  **The Language:** TensorLang is defined as an MLIR dialect optimized for machine learning operations and linear type systems.
-2.  **The Runtime:** Execution is managed by an LLVM ORC JIT engine.
-3.  **Reflection:** The system parses its own Intermediate Representation (IR) during active execution.
-4.  **The Reasoning Agent:** The extracted IR is transmitted to a local or cloud-based LLM inference engine (e.g., DeepSeek-R1, Qwen, or Gemma).
-5.  **Hot-Swap Execution:** The runtime receives the newly synthesized MLIR, compiles it to machine code asynchronously, and redirects the execution pointer to the optimized function.
+### 3.1 Autonomous Runtime Error Recovery
+Upon detecting a `tensorlang.assert` violation or a JIT parsing failure, the framework initiates a recursive syntactic self-repair protocol.
+1.  **Diagnostic Capture:** The runtime halts and extracts the active Intermediate Representation alongside the corresponding error diagnostic.
+2.  **Bypass Routing:** Structural diagnostics are routed directly to the Synthesis Engine, bypassing the more computationally intensive Reasoning Agent.
+3.  **Iteration:** The newly synthesized MLIR is evaluated iteratively until compilation succeeds, triggering a hot-swap of the execution pointer.
 
----
+### 3.2 Swarm Intelligence Evaluation
+Optimization strategies are evaluated concurrently across a synthesized population of 100 simulation agents. The performance is measured against randomized gravitational turbulence parameters, allowing the system to autonomously identify and select the most robust control architectures.
 
-## The Progression of Autonomous Intelligence
+## 4. Quantitative Results
 
-The research and development of NeuroJIT has progressed through several distinct phases:
+### 4.1 Recursive Syntactic Self-Repair Performance
+The implementation of the asymmetric bypass mechanism yielded significant reductions in error recovery latency:
+*   **Baseline Latency (Monolithic Architecture):** >1800.00 seconds (Timeout).
+*   **Optimized Latency (Dual-Agent Bypass):** 44.83 seconds.
+*   **Speedup Factor:** ~40x improvement over monolithic reasoning patterns.
 
-### Phase 1-3: Reactive Recovery (Cloud Inference)
-*   **Focus:** Reactive Autonomous Runtime Recovery.
-*   **Result:** Established the core JIT infrastructure and the initial retrieval-generation-compilation loop.
-*   **Analysis:** Cloud latency introduced significant bottlenecks; MLIR syntax complexity reduced the efficacy of single-shot generation.
+### 4.2 Persistent Memory Impact
+The transition to a stateful memory architecture eliminated the LLM reasoning requirement for known environmental conditions:
+*   **Cold Start Latency (Full Synthesis):** 44.9900 seconds.
+*   **Warm Start Latency (L1/L2 Cache Hit):** 0.0022 seconds.
+*   **Speedup Factor:** 20,450x reduction in intelligence acquisition latency.
 
-### Phase 4-5: Local Agent Architecture (64-Core Inference)
-*   **Focus:** Transitioning to fully offline inference utilizing `llama.cpp`.
-*   **Breakthrough:** Decoupled the Reasoning Agent (DeepSeek-R1 32B) from the Synthesis Engine (Qwen 2.5 Coder 7B).
-*   **Result:** Achieved a 92% success rate in simulated lunar descent tasks.
+### 4.3 Computational Saturation
+Thread alignment parameters (`n_threads_batch = 64`) ensured 100% physical core saturation during prompt evaluation on 64-thread architectures, removing hardware scheduling bottlenecks.
 
-### Phase 6-7: Modular Synthesis
-*   **Focus:** Overcoming the limitations of monolithic function generation.
-*   **Breakthrough:** Modular Control Synthesis. The system autonomously partitions logic into specialized, discrete functions (e.g., `@module_memory`, `@module_logic`).
-*   **Result:** Achieved 98% JIT reliability for complex proportional-integral-derivative (PID) control algorithms.
+## 5. Technical Conclusion and Future Research Vectors
 
-### Phase 8: Swarm Intelligence
-*   **Focus:** Evolving noise-resilient logic across a concurrent population of 100 simulated agents.
-*   **Learning:** Identified the "Reasoning Bottleneck" where complex recursive repairs exceeded established timeouts.
+The NeuroJIT Framework successfully functions as an autonomous optimization agent capable of preserving evolved architectural states. The following research vectors outline the immediate progression for the compiler pipeline:
 
-### Phase 9: High-Fidelity Autonomy
-*   **Focus:** Bridging the compiler diagnostic engine directly into the synthesis loop.
-*   **Breakthrough 1: Scoped Diagnostics.** Implemented an `mlir::ScopedDiagnosticHandler` to capture precise `loc(line:col)` parsing errors.
-*   **Breakthrough 2: Asymmetric Repair Bypass.** Decoupled strategy formulation from syntax correction, reducing Time-to-Intelligence from **30 minutes to 44 seconds**.
-*   **Result:** Achieved 100% core saturation on 64-thread hardware via prompt evaluation optimization.
-
----
-
-## Definitive Benchmarks
-
-### Lunar Descent Task Evaluation
-
-| Architecture | Model Configuration | Success Rate | Logic Depth | Latency |
-| :--- | :--- | :--- | :--- | :--- |
-| **Golden Architect** | DeepSeek-R1 + Qwen 7B | 98% | Advanced (PD/PID) | ~45s |
-| **Elite Suite** | R1 + Qwen3 (80B MoE) | 95% | Advanced | High (~180s) |
-| **Modern Suite** | Gemma 3 + Qwen 7B | 92% | Intermediate (P Control) | Low (13s) |
-| **Legacy Agent** | Qwen 2.5 7B | 35% | Basic | Fast (4s) |
-
-### Historical Performance Data
-*   **Matrix Multiplication:** Automated tiling and vectorization achieved a 2.7x speedup over standard scalar implementations.
-*   **Swarm Resilience:** Synthesized stabilization modules achieved a 72% survival rate in ±0.5 m/s² gravitational turbulence.
+*   **Phase 11: Cross-Generation Logic Synthesis.** Integrating functionality to instruct the Reasoning Agent to retrieve multiple non-volatile components from the L2 Registry, merging verified architectural traits to produce increasingly robust logic modules.
+*   **Phase 12: Vectorized SIMD Evaluation.** Reintegration of the MLIR `vector` dialect into the evaluation pipeline to optimize physics processing, contingent upon the stabilization of MLIR 19 LLVM lowering paths.
 
 ---
 
-## Quick Start Guide (February 2026 Build)
+## 6. Technical Documentation and Resources
 
-### 1. Build the Adaptive Runtime
+*   [Documentation Central Directory](docs/)
+*   [Phase 9 and 10 Report: Autonomy and Cumulative Learning](docs/research/SWARM_INTELLIGENCE.md)
+*   [Phase 4 Report: Multi-Agent Architecture](docs/research/PHASE_4_REPORT.md)
+*   [Comparative Evolution and Modular Synthesis](docs/research/COMPARATIVE_EVOLUTION.md)
+*   [Recursive Architecture Optimization](docs/research/RECURSIVE_OPTIMIZATION.md)
+*   [Model Benchmarks and Inference Expansion](docs/research/MODEL_EXPANSION_FEB_2026.md)
+*   [LLM Handoff Mechanics](docs/research/LLM_HANDOFF.md)
+*   [Initial Baseline Experiments](docs/research/EXPERIMENTS.md)
+
+### Deployment Prerequisites (February 2026 Specification)
 Requires LLVM 19, Ninja, and GCC 15+.
 ```bash
-# Build LLVM/MLIR 19 and the latest llama.cpp inference engine
 ./scripts/setup_and_build.sh
 mkdir build && cd build
 cmake .. && cmake --build . -j$(nproc)
 ```
 
-### 2. Execute the Swarm Evolution Simulation
-Observe the autonomous generation of noise-resilient control logic across 100 concurrent agents:
+Execution Protocol:
 ```bash
 ./scripts/run_lander.sh
 ```
-
----
-
-## Technical Documentation
-*   **[Modular Control Synthesis](docs/COMPARATIVE_EVOLUTION.md)** - Methodologies for overcoming complexity barriers.
-*   **[Swarm Intelligence & Autonomous Recovery](docs/SWARM_INTELLIGENCE.md)** - Population-wide evaluation logic.
-*   **[Phase 4 Report: Multi-Agent Integration](docs/PHASE_4_REPORT.md)** - Hardware transition and local inference analysis.
-*   **[Recursive Architecture Optimization](docs/RECURSIVE_OPTIMIZATION.md)** - Theoretical foundations of iterative generation.
-
----
-
-## 🚀 Recent Performance Breakthrough (Phase 10)
-Through the implementation of a Multi-Tiered Lobe Registry, we have achieved the following:
-* **TtI Speedup:** 20,450x improvement in Time-to-Intelligence (from 45s to 2.2ms).
-* **Memory Architecture:** L1 Cache (std::unordered_map) for nanosecond lookups during active sessions.
-* **Persistent Storage:** L2 Disk Registry for cross-session cumulative learning.
-* **Diagnostic Fidelity:** 100% capture of MLIR parsing errors via ScopedDiagnosticHandler.
