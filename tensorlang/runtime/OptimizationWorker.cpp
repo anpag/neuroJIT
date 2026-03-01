@@ -93,7 +93,9 @@ void OptimizationWorker::workerLoop() {
       continue;
     }
 
-    if (VerificationSandbox::verifyCandidate(newIR)) {
+    VerificationSandbox::VerificationResult vRes = VerificationSandbox::verifyCandidate(newIR);
+    
+    if (vRes == VerificationSandbox::VerificationResult::Success) {
       logRecord.sandboxPassed = true;
       logRecord.reward = 1.0;
       // It passed verification, compile it into the main context and swap!
@@ -108,10 +110,17 @@ void OptimizationWorker::workerLoop() {
       } else {
         printf("[Worker] Main context compilation failed despite Sandbox success.\n");
       }
-    } else {
+    } else if (vRes == VerificationSandbox::VerificationResult::CompileFailed) {
+      logRecord.compiled = false;
       logRecord.sandboxPassed = false;
-      logRecord.reward = -1.0;
-      printf("[Worker] Verification Sandbox rejected LLM logic. Dropping patch.\n");
+      logRecord.reward = -1.0; // Heavily penalize hallucinated MLIR
+      printf("[Worker] Verification Sandbox rejected LLM logic: Compile/Link Failed. Dropping patch.\n");
+    } else {
+      // SemanticFailed or ExecutionFailed
+      logRecord.compiled = true; // It compiled, but failed the physics bounds checks
+      logRecord.sandboxPassed = false;
+      logRecord.reward = -0.5; // Penalize less for compiling successfully but failing logic
+      printf("[Worker] Verification Sandbox rejected LLM logic: Semantic Physics Failed. Dropping patch.\n");
     }
 
     ExperienceLogger::logExperience(logRecord);

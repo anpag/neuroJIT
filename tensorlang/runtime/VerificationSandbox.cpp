@@ -7,14 +7,14 @@
 namespace mlir {
 namespace tensorlang {
 
-bool VerificationSandbox::verifyCandidate(const std::string& candidateIR) {
-  printf("[Sandbox] Initializing isolated JIT environment...\n");
+VerificationSandbox::VerificationResult VerificationSandbox::verifyCandidate(const std::string& candidateIR) {
+  printf("[Sandbox] Initializing completely isolated JIT environment...\n");
 
   auto evalRunnerOrErr = JitRunner::create();
   if (auto err = evalRunnerOrErr.takeError()) {
     fprintf(stderr, "[Sandbox] Failed to create isolated JIT\n");
     llvm::consumeError(std::move(err));
-    return false;
+    return VerificationResult::ExecutionFailed;
   }
   auto evalRunner = std::move(*evalRunnerOrErr);
 
@@ -22,7 +22,7 @@ bool VerificationSandbox::verifyCandidate(const std::string& candidateIR) {
   if (auto err = evalRunner->compileString(candidateIR)) {
     fprintf(stderr, "[Sandbox] Compilation failed (LLM hallucinated invalid MLIR)\n");
     llvm::consumeError(std::move(err));
-    return false;
+    return VerificationResult::CompileFailed;
   }
 
   printf("[Sandbox] Executing semantic checks on get_thrust...\n");
@@ -30,11 +30,11 @@ bool VerificationSandbox::verifyCandidate(const std::string& candidateIR) {
   if (!sym) {
     fprintf(stderr, "[Sandbox] Missing get_thrust symbol.\n");
     llvm::consumeError(sym.takeError());
-    return false;
+    return VerificationResult::CompileFailed; // Link failure counts as compile failure here
   }
-  
+
   auto get_thrust_fn = reinterpret_cast<float(*)(float, float)>(sym.get());
-  
+
   // Semantic Oracle: Thrust must be >= 0 and reasonable for basic states
   float test1 = get_thrust_fn(100.0f, -10.0f); // High up, moving down fast
   float test2 = get_thrust_fn(5.0f, -2.0f);    // Near ground, moving down slowly
@@ -42,23 +42,18 @@ bool VerificationSandbox::verifyCandidate(const std::string& candidateIR) {
 
   if (test1 < 0.0f || test2 < 0.0f || test3 < 0.0f) {
     fprintf(stderr, "[Sandbox] Semantic failure: Output negative thrust.\n");
-    return false;
+    return VerificationResult::SemanticFailed;
   }
   if (test1 > 20.0f || test2 > 20.0f || test3 > 20.0f) {
     fprintf(stderr, "[Sandbox] Semantic failure: Engine max capacity exceeded.\n");
-    return false;
+    return VerificationResult::SemanticFailed;
   }
   if (test1 <= test2) {
-      // In a real controller, thrust should generally be higher when moving fast downwards
-      // than when moving slow near the ground. We won't strictly fail on this, but it's a good check.
       printf("[Sandbox] Warning: Unintuitive thrust curve (test1=%f, test2=%f)\n", test1, test2);
   }
 
-  // Note: We skip sim_main here to avoid touching the global JitContext state,
-  // preventing race conditions with the main execution thread.
-
-  printf("[Sandbox] VERIFICATION SUCCESS! Candidate is safe for production.\n");
-  return true;
+  printf("[Sandbox] VERIFICATION SUCCESS! Candidate passes semantic constraints.\n");
+  return VerificationResult::Success;
 }
 
 } // namespace tensorlang

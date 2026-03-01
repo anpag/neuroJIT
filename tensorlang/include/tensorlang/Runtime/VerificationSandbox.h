@@ -8,10 +8,17 @@ namespace tensorlang {
 
 class VerificationSandbox {
 public:
+  enum class VerificationResult {
+    Success,
+    CompileFailed,
+    SemanticFailed,
+    ExecutionFailed
+  };
+
   /// Compiles the candidate IR in a completely isolated JIT environment.
-  /// Executes the 'sim_main' function to verify if the logic is safe.
-  /// Returns true if the episode completes without tripping any assertions.
-  static bool verifyCandidate(const std::string& candidateIR);
+  /// Executes semantic checks on the function logic.
+  /// Returns the specific result of the verification.
+  static VerificationResult verifyCandidate(const std::string& candidateIR);
 };
 
 } // namespace tensorlang
