@@ -12,6 +12,8 @@
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Target/LLVMIR/Dialect/Builtin/BuiltinToLLVMIRTranslation.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
 #include "llvm/Support/CommandLine.h"
@@ -63,6 +65,8 @@ int main(int argc, char **argv) {
   context.getOrLoadDialect<arith::ArithDialect>();
   context.getOrLoadDialect<tensor::TensorDialect>();
   context.getOrLoadDialect<scf::SCFDialect>();
+  context.getOrLoadDialect<vector::VectorDialect>();
+  context.getOrLoadDialect<math::MathDialect>();
 
   // Parse input
   std::string errorMessage;

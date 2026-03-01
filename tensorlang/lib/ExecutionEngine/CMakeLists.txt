@@ -25,6 +25,8 @@ target_link_libraries(TensorLangExecutionEngine
   MLIRFuncToLLVM
   MLIRMemRefToLLVM
   MLIRArithToLLVM
+  MLIRVectorToSCF
+  MLIRVectorToLLVM
   MLIRReconcileUnrealizedCasts
   
   # Dialects

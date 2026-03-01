@@ -33,6 +33,8 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVMPass.h"
+#include "mlir/Conversion/VectorToSCF/VectorToSCF.h"
 
 // Correct Header for EPCDynamicLibrarySearchGenerator
 #include "llvm/ExecutionEngine/Orc/EPCDynamicLibrarySearchGenerator.h"
@@ -71,6 +73,7 @@ llvm::Error JitRunner::run(ModuleOp module) {
   bufferization::OneShotBufferizationOptions options;
   options.bufferizeFunctionBoundaries = true;
   pm.addPass(bufferization::createOneShotBufferizePass(options));
+  pm.addPass(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createConvertLinalgToLoopsPass());
   pm.addPass(memref::createExpandStridedMetadataPass());
   pm.addPass(createConvertSCFToCFPass());
@@ -78,8 +81,6 @@ llvm::Error JitRunner::run(ModuleOp module) {
   pm.addPass(createArithToLLVMConversionPass());
   pm.addPass(createConvertFuncToLLVMPass());
   pm.addPass(createFinalizeMemRefToLLVMConversionPass());
-  pm.addPass(createConvertIndexToLLVMPass());
-  pm.addPass(createCanonicalizerPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
   if (failed(pm.run(module))) return llvm::make_error<llvm::StringError>("Optimization failed", llvm::inconvertibleErrorCode());
   auto llvmContext = std::make_unique<llvm::LLVMContext>();
@@ -117,6 +118,7 @@ llvm::Error JitRunner::compile(ModuleOp module) {
   options.bufferizeFunctionBoundaries = true;
   pm.addPass(bufferization::createOneShotBufferizePass(options));
   pm.addPass(createCanonicalizerPass());
+  pm.addPass(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createConvertLinalgToLoopsPass());
   pm.addPass(memref::createExpandStridedMetadataPass());
   pm.addPass(createConvertSCFToCFPass());
@@ -124,8 +126,6 @@ llvm::Error JitRunner::compile(ModuleOp module) {
   pm.addPass(createArithToLLVMConversionPass());
   pm.addPass(createConvertFuncToLLVMPass());
   pm.addPass(createFinalizeMemRefToLLVMConversionPass());
-  pm.addPass(createConvertIndexToLLVMPass());
-  pm.addPass(createCanonicalizerPass());
   pm.addPass(createReconcileUnrealizedCastsPass());
 
   if (failed(pm.run(module))) {

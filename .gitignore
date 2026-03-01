@@ -20,3 +20,4 @@ Makefile
 # OS specific
 .DS_Store
 .env
+.neurojit_updates.tmp
