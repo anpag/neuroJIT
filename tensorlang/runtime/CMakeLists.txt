@@ -7,6 +7,7 @@ add_library(TensorLangRuntime STATIC
   StrategyCache.cpp
   OptimizationWorker.cpp
   VerificationSandbox.cpp
+  ExperienceLogger.cpp
   # NEW FILES ADDED IN V2:
 )
 

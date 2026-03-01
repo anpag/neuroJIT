@@ -2,6 +2,7 @@
 #include "tensorlang/Runtime/JitContext.h"
 #include "tensorlang/Runtime/ModelRunner.h"
 #include "tensorlang/Runtime/VerificationSandbox.h"
+#include "tensorlang/Runtime/ExperienceLogger.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstdio>
 
@@ -77,15 +78,26 @@ void OptimizationWorker::workerLoop() {
 
     std::string newIR = runner->query(prompt);
 
+    ExperienceRecord logRecord;
+    logRecord.episode = processed_.load();
+    logRecord.failureType = req.errorMessage.empty() ? "optimization" : "assert_fail";
+    logRecord.irBefore = req.originalIR;
+    logRecord.fullPrompt = prompt;
+    logRecord.generatedPatch = newIR;
+
     if (newIR.empty()) {
       printf("[Worker] LLM returned empty IR — skipping\n");
       busy_.store(false, std::memory_order_release);
+      ExperienceLogger::logExperience(logRecord);
       continue;
     }
 
     if (VerificationSandbox::verifyCandidate(newIR)) {
+      logRecord.sandboxPassed = true;
+      logRecord.reward = 1.0;
       // It passed verification, compile it into the main context and swap!
       if (tensorlang_compile(newIR.c_str()) == 0) {
+        logRecord.compiled = true;
         void* fnPtr = tensorlang_get_symbol_address(req.functionName.c_str());
         if (fnPtr) {
           hotSwapCb_(fnPtr, newIR);
@@ -96,8 +108,12 @@ void OptimizationWorker::workerLoop() {
         printf("[Worker] Main context compilation failed despite Sandbox success.\n");
       }
     } else {
+      logRecord.sandboxPassed = false;
+      logRecord.reward = -1.0;
       printf("[Worker] Verification Sandbox rejected LLM logic. Dropping patch.\n");
     }
+
+    ExperienceLogger::logExperience(logRecord);
 
     processed_.fetch_add(1, std::memory_order_relaxed);
     busy_.store(false, std::memory_order_release);

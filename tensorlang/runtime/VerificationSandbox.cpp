@@ -31,6 +31,38 @@ bool VerificationSandbox::verifyCandidate(const std::string& candidateIR) {
     return false;
   }
 
+  printf("[Sandbox] Executing semantic checks on get_thrust...\n");
+  auto sym = evalRunner->lookup("get_thrust");
+  if (!sym) {
+    fprintf(stderr, "[Sandbox] Missing get_thrust symbol.\n");
+    llvm::consumeError(sym.takeError());
+    ctx.registerRunner(oldRunner);
+    return false;
+  }
+  
+  auto get_thrust_fn = reinterpret_cast<float(*)(float, float)>(sym.get());
+  
+  // Semantic Oracle: Thrust must be >= 0 and reasonable for basic states
+  float test1 = get_thrust_fn(100.0f, -10.0f); // High up, moving down fast
+  float test2 = get_thrust_fn(5.0f, -2.0f);    // Near ground, moving down slowly
+  float test3 = get_thrust_fn(0.0f, 0.0f);     // On ground, stopped
+
+  if (test1 < 0.0f || test2 < 0.0f || test3 < 0.0f) {
+    fprintf(stderr, "[Sandbox] Semantic failure: Output negative thrust.\n");
+    ctx.registerRunner(oldRunner);
+    return false;
+  }
+  if (test1 > 20.0f || test2 > 20.0f || test3 > 20.0f) {
+    fprintf(stderr, "[Sandbox] Semantic failure: Engine max capacity exceeded.\n");
+    ctx.registerRunner(oldRunner);
+    return false;
+  }
+  if (test1 <= test2) {
+      // In a real controller, thrust should generally be higher when moving fast downwards
+      // than when moving slow near the ground. We won't strictly fail on this, but it's a good check.
+      printf("[Sandbox] Warning: Unintuitive thrust curve (test1=%f, test2=%f)\n", test1, test2);
+  }
+
   printf("[Sandbox] Executing verification episode...\n");
   auto result = evalRunner->invoke("sim_main");
 

@@ -68,14 +68,22 @@ private:
     std::ostringstream ss;
     ss << "<|im_start|>system\n"
        << "You are an expert compiler optimization engineer. "
-       << "You will be provided with an MLIR module. "
-       << "Write the corrected or optimized MLIR module wrapped in ```mlir ... ``` blocks.\n"
+       << "You will be provided with an MLIR module and an execution state context.\n"
+       << "Your task is to rewrite the failing MLIR function to prevent assertions or physics violations.\n\n"
+       << "CRITICAL DIALECT RULES:\n"
+       << "1. The 'tensorlang.assert' operation takes one operand and NO parenthesis:\n"
+       << "   VALID:   func.call @tensorlang_assert_fail(%cond) : (i64) -> ()\n"
+       << "   INVALID: assert(%cond)\n"
+       << "2. All variables must be strictly typed (e.g. : f32 or : i64).\n"
+       << "3. Use standard arith operations (arith.addf, arith.mulf, arith.cmpf olt).\n\n"
+       << "Return ONLY a valid MLIR module starting with `module {` and ending with `}`.\n"
+       << "No markdown. No explanation. No comments outside the module.\n"
        << "<|im_end|>\n"
        << "<|im_start|>user\n"
        << user_content << "\n"
        << "<|im_end|>\n"
        << "<|im_start|>assistant\n"
-       << "```mlir\n"; // Prime the model to start MLIR block immediately
+       << "```mlir\nmodule {\n";
     return ss.str();
   }
 
@@ -120,21 +128,12 @@ private:
   }
 
   std::string extractMLIR(const std::string& raw) {
-    size_t start = raw.find("```mlir");
-    if (start == std::string::npos) {
-      start = raw.find("```");
+    std::string clean = "module {\n" + raw;
+    size_t end = clean.find("```");
+    if (end != std::string::npos) {
+      return clean.substr(0, end);
     }
-    
-    if (start != std::string::npos) {
-      start = raw.find('\n', start) + 1;
-      size_t end = raw.find("```", start);
-      if (end != std::string::npos) {
-        return raw.substr(start, end - start);
-      } else {
-        return raw.substr(start); // To end of string if block not closed
-      }
-    }
-    return raw; // Fallback: return raw output if no block markers found
+    return clean; 
   }
 };
 
