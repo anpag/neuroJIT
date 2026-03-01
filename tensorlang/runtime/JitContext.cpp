@@ -69,6 +69,11 @@ bool JitContext::consumeRestartRequest(std::string& outNewIR) {
   return true;
 }
 
+void JitContext::shutdown() {
+  worker_.reset(); // Joins the thread and destroys the worker safely
+  modelRunner_.reset();
+}
+
 OptimizationWorker& JitContext::getWorker() { return *worker_; }
 
 // ---------------------------------------------------------------------------

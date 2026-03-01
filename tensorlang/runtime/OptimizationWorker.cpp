@@ -29,16 +29,17 @@ OptimizationWorker::~OptimizationWorker() {
   if (thread_.joinable()) thread_.join();
 }
 
-void OptimizationWorker::submit(OptimizationRequest req) {
+bool OptimizationWorker::submit(OptimizationRequest req) {
   {
     std::lock_guard<std::mutex> lock(queueMutex_);
-    if (!queue_.empty() && queue_.back().functionName == req.functionName) {
-      printf("[Worker] Dropping duplicate request for '%s'\n", req.functionName.c_str());
-      return;
+    if (busy_.load(std::memory_order_acquire) || !queue_.empty()) {
+      printf("[Worker] Busy, dropping repair request for '%s'\n", req.functionName.c_str());
+      return false;
     }
     queue_.push(std::move(req));
   }
   cv_.notify_one();
+  return true;
 }
 
 void OptimizationWorker::workerLoop() {

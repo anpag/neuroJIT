@@ -30,8 +30,8 @@ public:
   explicit OptimizationWorker(HotSwapCallback cb);
   ~OptimizationWorker();
 
-  /// Non-blocking. Drops duplicate requests for the same function name.
-  void submit(OptimizationRequest req);
+  /// Non-blocking. Returns false if the request was dropped.
+  bool submit(OptimizationRequest req);
 
   /// Returns true if a request is currently in-flight.
   bool isBusy() const { return busy_.load(std::memory_order_acquire); }

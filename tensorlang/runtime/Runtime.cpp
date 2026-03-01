@@ -42,21 +42,23 @@ void tensorlang_assert_fail(int64_t loc) {
 
   printf("[Assert] Violation detected at loc %ld. Submitting async repair request...\n", (long)loc);
 
-  if (ctx.isOnlineOptimizationEnabled() && !ctx.getWorker().isBusy()) {
+  if (ctx.isOnlineOptimizationEnabled()) {
     mlir::tensorlang::OptimizationRequest req;
     // For now, hardcode "get_thrust" or make it generic based on profiling in Phase 7
     req.functionName = "get_thrust"; 
     req.originalIR = ctx.getModuleIR();
     req.errorMessage = "Assertion failed at location " + std::to_string(loc);
-    
-    ctx.getWorker().submit(std::move(req));
+
+    if (!ctx.getWorker().submit(std::move(req))) {
+       // Request was dropped.
+    }
   } else {
-    printf("[Assert] Worker busy or offline optimization disabled.\n");
+    printf("[Assert] Offline optimization disabled.\n");
   }
 
   // Check registry for a known-good lobe to restart with
   std::string recoveryIR = ctx.loadLobe("latest_async_repair");
-  
+
   if (recoveryIR.empty()) {
     printf("[Assert] No repair lobe found. Restarting from baseline.\n");
     recoveryIR = ctx.getModuleIR(); // fallback to current logic (which will likely just crash again until healed)
@@ -70,7 +72,7 @@ void tensorlang_assert_fail(int64_t loc) {
 
 void tensorlang_optimize_async(const char* /*prompt*/, const char* target_name) {
   auto& ctx = mlir::tensorlang::JitContext::getInstance();
-  if (ctx.isOnlineOptimizationEnabled() && !ctx.getWorker().isBusy()) {
+  if (ctx.isOnlineOptimizationEnabled()) {
     mlir::tensorlang::OptimizationRequest req;
     req.functionName = target_name ? target_name : "main";
     req.originalIR = ctx.getModuleIR();

@@ -61,6 +61,8 @@ public:
   void setOnlineOptimization(bool enabled) { onlineOptimizationEnabled_ = enabled; }
   bool isOnlineOptimizationEnabled() const { return onlineOptimizationEnabled_; }
 
+  void shutdown();
+
   // -----------------------------------------------------------------------
   // Lobe Registry: L1 (RAM) + L2 (Disk) for caching successful LLM outputs
   // -----------------------------------------------------------------------

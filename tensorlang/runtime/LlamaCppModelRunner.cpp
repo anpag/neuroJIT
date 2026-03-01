@@ -36,7 +36,7 @@ public:
   }
 
   std::string query(const std::string& prompt) override {
-    std::lock_guard<std::mutex> lock(queryMutex_);
+    std::lock_guard<std::mutex> lock(inferenceMutex_);
 
     if (!muscleModel_) return "";
 
@@ -52,15 +52,17 @@ public:
   }
 
 private:
-  std::mutex queryMutex_;
+  mutable std::mutex inferenceMutex_;
   llama_model* muscleModel_ = nullptr;
 
   llama_context* createContext(llama_model* m, int n_ctx) {
     if (!m) return nullptr;
     llama_context_params p = llama_context_default_params();
     p.n_ctx           = n_ctx;
-    p.n_threads       = 64;
-    p.n_threads_batch = 64;
+    unsigned int nCores = std::max(1u, std::thread::hardware_concurrency() / 2);
+    p.n_threads       = nCores;
+    p.n_threads_batch = nCores;
+    fprintf(stderr, "[Llama] Using %u threads\n", nCores);
     return llama_init_from_model(m, p);
   }
 

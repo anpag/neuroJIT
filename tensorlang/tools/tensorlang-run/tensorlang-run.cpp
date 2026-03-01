@@ -144,5 +144,8 @@ int main(int argc, char** argv) {
     printf("[NeuroJIT] Execution completed gracefully.\n");
   }
 
+  // Safely shut down the background worker and LLM runner before LLVM infrastructure is destroyed
+  JitContext::getInstance().shutdown();
+
   return exitCode;
 }
