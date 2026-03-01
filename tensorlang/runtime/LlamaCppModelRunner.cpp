@@ -153,34 +153,18 @@ private:
     size_t r1_end = result.find("</think>");
     if (r1_end != std::string::npos) result = result.substr(r1_end + 8);
     
-    // 2. Strip Markdown
-    size_t start_ticks = result.find("```");
-    if (start_ticks != std::string::npos) {
-        size_t next_line = result.find("\n", start_ticks);
-        size_t end_ticks = result.find("```", next_line);
-        if (next_line != std::string::npos && end_ticks != std::string::npos)
-            result = result.substr(next_line + 1, end_ticks - next_line - 1);
-    }
-    
-    // 3. Extract ALL func.func blocks and wrap in module
-    std::stringstream ss;
-    ss << "module {\n";
+    // 2. Extract FIRST func.func block aggressively
     size_t pos = result.find("func.func");
-    while (pos != std::string::npos) {
+    if (pos != std::string::npos) {
         size_t end_brace = result.find("}", pos);
         if (end_brace != std::string::npos) {
-            // Find the nested scope depth if any (simple brace count)
-            ss << result.substr(pos, end_brace - pos + 1) << "\n";
-            pos = result.find("func.func", end_brace);
-        } else {
-            break;
+            std::stringstream ss;
+            ss << "module {\n" << result.substr(pos, end_brace - pos + 1) << "\n}\n";
+            return ss.str();
         }
     }
-    ss << "}\n";
     
-    std::string wrapped = ss.str();
-    // Only return if we actually found functions
-    return (wrapped.size() > 20) ? wrapped : result;
+    return result; // Fallback to raw if no structure found
   }
 };
 
