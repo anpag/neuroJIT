@@ -194,9 +194,17 @@ llvm::Error JitRunner::compileString(llvm::StringRef source) {
   context.getOrLoadDialect<LLVM::LLVMDialect>();
   llvm::SourceMgr sourceMgr;
   sourceMgr.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(source), llvm::SMLoc());
+  
+  std::string diag_str;
+  llvm::raw_string_ostream os(diag_str);
+  mlir::ScopedDiagnosticHandler diagHandler(&context, [&](mlir::Diagnostic &diag) {
+    os << diag.getLocation() << ": " << diag << "\n";
+    return mlir::success();
+  });
+
   mlir::OwningOpRef<mlir::ModuleOp> module = mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, &context);
   if (!module) {
-    g_last_error_msg = "Failed to parse MLIR source";
+    g_last_error_msg = diag_str.empty() ? "Failed to parse MLIR source" : diag_str;
     return llvm::make_error<llvm::StringError>(g_last_error_msg, llvm::inconvertibleErrorCode());
   }
   return compile(*module);

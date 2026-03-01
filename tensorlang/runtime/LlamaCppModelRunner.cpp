@@ -57,31 +57,28 @@ public:
     llama_context* muscleCtx = createContext(muscleModel);
     if (!brainCtx || !muscleCtx) return "(error: context creation failed)";
 
-    // --- STEP 1: THE BRAIN (Swarm Architecture & Cross-Breeding) ---
-    std::cout << "[Evolution] Brain (R1) analyzing swarm results for cross-breeding..." << std::endl;
+    // --- STEP 1: THE BRAIN (Scalar Swarm Architecture) ---
     std::stringstream brain_ss;
     brain_ss << "<｜begin▁of▁sentence｜><｜User｜><think>\n"
-             << "I am evolving a swarm of 100 landers. Environment: Gravitational Turbulence (-0.5 to 0.5). "
-             << "Objective: Cross-breed the most efficient PD/PID control parameters. "
-             << "I will synthesize a 'Super Lobe' that is noise-resilient.\n"
+             << "Evolving a scalar control system for a swarm of 100 landers. "
+             << "Objective: Soft landing using f32 arithmetic.\n"
              << "</think>\n"
-             << "SWARM EVOLUTION PLAN:\n"
-             << "1. Synthesize a noise-robust control architecture (Lobe).\n"
-             << "2. Use memory tensor to filter turbulence.\n"
-             << "Current IR: " << prompt << "\n"
+             << "SCALAR ARCHITECTURE:\n"
+             << "1. Target: @get_thrust(%h: f32, %v: f32) -> f32.\n"
+             << "2. Implement PD control logic.\n"
              << "<｜Assistant｜>";
     
     std::string plan = runInference(brainCtx, brainModel, brain_ss.str(), 512);
     
-    // --- STEP 2: THE MUSCLE ---
-    std::cout << "[Evolution] Muscle synthesizing noise-resilient Super Lobe..." << std::endl;
+    // --- STEP 2: THE MUSCLE (Scalar Implementation) ---
     std::stringstream muscle_ss;
     muscle_ss << "<|im_start|>system\n"
-              << "You are an MLIR Swarm Architect. Implement the noise-resilient Super Lobe.\n"
-              << "STRICT: Return ONLY the func.func blocks. Use multiple lobes if needed.\n"
+              << "You are an MLIR specialist. Return ONLY the func.func @get_thrust block.\n"
+              << "RULES:\n"
+              << "1. Use scalar f32 math.\n"
               << "<|im_end|>\n"
               << "<|im_start|>user\n"
-              << "IMPLEMENT SWARM PLAN:\n" << plan << "\n"
+              << "IMPLEMENT PLAN:\n" << plan << "\n"
               << "<|im_end|>\n"
               << "<|im_start|>assistant\n";
 
@@ -103,6 +100,7 @@ private:
     llama_context_params cparams = llama_context_default_params();
     cparams.n_ctx = 4096;
     cparams.n_threads = 64;
+    cparams.n_threads_batch = 64; // Saturation for prompt eval
     return llama_init_from_model(m, cparams);
   }
 
