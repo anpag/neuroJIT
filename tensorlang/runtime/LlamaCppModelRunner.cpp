@@ -7,6 +7,7 @@
 #include <sstream>
 #include <fstream>
 #include <mutex>
+#include <sys/stat.h>
 
 namespace mlir {
 namespace tensorlang {
@@ -40,9 +41,27 @@ public:
 
     if (!muscleModel_) return "";
 
+    struct stat st;
+    if (stat("adapter_latest.bin", &st) == 0) {
+      if (st.st_mtime > lastAdapterMtime_) {
+        printf("[LLM] Hot-reloading new LoRA adapter...\n");
+        currentAdapter_ = llama_adapter_lora_init(muscleModel_, "adapter_latest.bin");
+        if (!currentAdapter_) {
+          fprintf(stderr, "[LLM] Failed to load adapter from adapter_latest.bin\n");
+        } else {
+          lastAdapterMtime_ = st.st_mtime;
+        }
+      }
+    }
+
     // A large context window is needed to hold the full MLIR module
     llama_context* ctx = createContext(muscleModel_, 4096);
     if (!ctx) return "";
+
+    if (currentAdapter_) {
+      float scale = 1.0f;
+      llama_set_adapters_lora(ctx, &currentAdapter_, 1, &scale);
+    }
 
     std::string formatted = formatPrompt(prompt);
     std::string raw = runInference(ctx, muscleModel_, formatted, 2048);
@@ -54,6 +73,8 @@ public:
 private:
   mutable std::mutex inferenceMutex_;
   llama_model* muscleModel_ = nullptr;
+  llama_adapter_lora* currentAdapter_ = nullptr;
+  time_t lastAdapterMtime_ = 0;
 
   llama_context* createContext(llama_model* m, int n_ctx) {
     if (!m) return nullptr;
