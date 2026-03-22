@@ -67,23 +67,13 @@ void OptimizationWorker::workerLoop() {
       continue;
     }
 
-    std::string prompt = "You are an expert MLIR compiler engineer.\n";
-    if (!req.errorMessage.empty()) {
-      prompt += "The following MLIR module caused an assertion failure at runtime: " + req.errorMessage + "\n";
-      prompt += "Rewrite the function '" + req.functionName + "' to fix the bug and prevent the crash.\n";
-    } else {
-      prompt += "Optimize the function '" + req.functionName + "' in the following MLIR module.\n";
-    }
-    prompt += "Return the FULL, syntactically valid MLIR module. Wrap it in ```mlir ... ``` tags.\n";
-    prompt += "Original IR:\n```mlir\n" + req.originalIR + "\n```\n";
-
-    std::string newIR = runner->query(prompt);
+    std::string newIR = runner->query(req.originalIR);
 
     ExperienceRecord logRecord;
     logRecord.episode = processed_.load();
     logRecord.failureType = req.errorMessage.empty() ? "optimization" : "assert_fail";
     logRecord.irBefore = req.originalIR;
-    logRecord.fullPrompt = prompt;
+    logRecord.fullPrompt = "";
     logRecord.generatedPatch = newIR;
 
     if (newIR.empty()) {

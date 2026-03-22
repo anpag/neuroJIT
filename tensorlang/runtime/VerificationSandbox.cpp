@@ -52,6 +52,10 @@ VerificationSandbox::VerificationResult VerificationSandbox::verifyCandidate(con
     fprintf(stderr, "[Sandbox] Semantic failure: Engine max capacity exceeded.\n");
     return VerificationResult::SemanticFailed;
   }
+  if (test1 == test2 && test2 == test3) {
+    fprintf(stderr, "[Sandbox] Semantic failure: Constant output, function ignores inputs.\n");
+    return VerificationResult::SemanticFailed;
+  }
   if (test1 <= test2) {
       printf("[Sandbox] Warning: Unintuitive thrust curve (test1=%f, test2=%f)\n", test1, test2);
   }

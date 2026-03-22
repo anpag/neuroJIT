@@ -8,13 +8,18 @@
 #include <fstream>
 #include <mutex>
 #include <sys/stat.h>
+#include <random>
 
 namespace mlir {
 namespace tensorlang {
 
 class LlamaCppModelRunner : public ModelRunner {
 public:
-  LlamaCppModelRunner() { ggml_backend_load_all(); }
+  LlamaCppModelRunner() { 
+    ggml_backend_load_all();
+    std::random_device rd;
+    rng_.seed(rd());
+  }
 
   ~LlamaCppModelRunner() {
     if (muscleModel_) llama_model_free(muscleModel_);
@@ -63,11 +68,14 @@ public:
       llama_set_adapters_lora(ctx, &currentAdapter_, 1, &scale);
     }
 
-    std::string formatted = formatPrompt(prompt);
+    std::string history = getHistory();
+    std::string constraint = getSeedConstraint();
+    std::string formatted = formatPrompt(prompt, history, constraint);
+    
     std::string raw = runInference(ctx, muscleModel_, formatted, 2048);
     llama_free(ctx);
 
-    return extractMLIR(raw);
+    return extractGetThrust(raw);
   }
 
 private:
@@ -75,6 +83,7 @@ private:
   llama_model* muscleModel_ = nullptr;
   llama_adapter_lora* currentAdapter_ = nullptr;
   time_t lastAdapterMtime_ = 0;
+  std::mt19937 rng_;
 
   llama_context* createContext(llama_model* m, int n_ctx) {
     if (!m) return nullptr;
@@ -87,29 +96,80 @@ private:
     return llama_init_from_model(m, p);
   }
 
-  std::string formatPrompt(const std::string& user_content) {
+  std::string getHistory() {
+    std::ifstream file("tensorlang_training_data.jsonl");
+    if (!file.is_open()) return "No previous attempts.\n";
+
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(file, line)) {
+      if (!line.empty()) lines.push_back(line);
+    }
+
+    std::ostringstream ss;
+    int count = 0;
+    for (int i = lines.size() - 1; i >= 0 && count < 3; --i, ++count) {
+      // Very simple JSON extraction for speed (avoiding extra deps)
+      size_t patchStart = lines[i].find("\"generated_patch\":\"");
+      if (patchStart == std::string::npos) continue;
+      patchStart += 19;
+      size_t patchEnd = lines[i].find("\",\"compiled\"", patchStart);
+      if (patchEnd == std::string::npos) continue;
+      
+      std::string patch = lines[i].substr(patchStart, patchEnd - patchStart);
+      // Unescape newlines
+      size_t pos = 0;
+      while ((pos = patch.find("\\n", pos)) != std::string::npos) {
+        patch.replace(pos, 2, "\n");
+        pos += 1;
+      }
+
+      size_t rewardStart = lines[i].find("\"reward\":");
+      std::string reward = "unknown";
+      if (rewardStart != std::string::npos) {
+        rewardStart += 9;
+        size_t rewardEnd = lines[i].find(",", rewardStart);
+        if (rewardEnd == std::string::npos) rewardEnd = lines[i].find("}", rewardStart);
+        if (rewardEnd != std::string::npos) reward = lines[i].substr(rewardStart, rewardEnd - rewardStart);
+      }
+
+      ss << "Attempt " << (count + 1) << " (Reward: " << reward << "):\n" << patch << "\n\n";
+    }
+    return ss.str();
+  }
+
+  std::string getSeedConstraint() {
+    static const std::vector<std::string> constraints = {
+      "The base thrust must be between 0.5 and 1.0",
+      "The velocity coefficient must be negative",
+      "Use at least 3 arithmetic operations",
+      "The thrust must decrease as height increases",
+      "Use a coefficient greater than 1.0 for velocity scaling",
+    };
+    std::uniform_int_distribution<int> dist(0, constraints.size() - 1);
+    return constraints[dist(rng_)];
+  }
+
+  std::string formatPrompt(const std::string& ir_before, const std::string& history, const std::string& constraint) {
     std::ostringstream ss;
     ss << "<|im_start|>system\n"
-       << "You are an expert compiler optimization engineer.\n"
-       << "Your task is to rewrite ONLY the failing 'get_thrust' function to prevent assertions or physics violations.\n\n"
-       << "CRITICAL RULES:\n"
-       << "1. The function MUST have the 'llvm.emit_c_interface' attribute.\n"
-       << "2. ONLY return the modified get_thrust function inside a module, DO NOT return the entire original file.\n\n"
-       << "EXAMPLE OF A VALID PATCH:\n"
-       << "module {\n"
-       << "  func.func @get_thrust(%h: f32, %v: f32) -> f32 attributes { llvm.emit_c_interface } {\n"
-       << "    %gravity = arith.constant 1.62 : f32\n"
-       << "    %kp      = arith.constant 0.5  : f32\n"
-       << "    %neg_v   = arith.negf %v : f32\n"
-       << "    %ctrl    = arith.mulf %neg_v, %kp : f32\n"
-       << "    %thrust  = arith.addf %gravity, %ctrl : f32\n"
-       << "    return %thrust : f32\n"
-       << "  }\n"
-       << "}\n\n"
-       << "Return ONLY a valid MLIR module starting with `module {` and ending with `}`.\n"
+       << "You are an MLIR compiler engineer. You rewrite broken MLIR functions.\n"
+       << "Write a NEW function @get_thrust(%h: f32, %v: f32) -> f32 that uses %h (height) and %v (velocity) to compute thrust.\n\n"
+       << "Rules:\n"
+       << "- Use ONLY these ops: arith.constant, arith.addf, arith.subf, arith.mulf, arith.negf, arith.select, arith.cmpf\n"
+       << "- Return a single f32 value inside a module block.\n"
+       << "- No loops, no branches.\n"
+       << "- Use DIFFERENT constants than previous attempts.\n"
+       << "- Additional constraint this round: " << constraint << "\n\n"
+       << "Previous attempts and their scores:\n"
+       << history << "\n"
+       << "Return ONLY the module block starting with 'module {'. No explanation. No markdown.\n"
        << "<|im_end|>\n"
        << "<|im_start|>user\n"
-       << user_content << "\n"
+       << "The following get_thrust function is broken. Fix it.\n\n"
+       << "BROKEN FUNCTION:\n"
+       << ir_before << "\n\n"
+       << "Output the fixed module now.\n"
        << "<|im_end|>\n"
        << "<|im_start|>assistant\n"
        << "module {\n";
@@ -133,7 +193,18 @@ private:
 
     auto sparams = llama_sampler_chain_default_params();
     llama_sampler* smpl = llama_sampler_chain_init(sparams);
-    llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+    
+    // Apply new sampling logic for diversity
+    llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.8f));
+    llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.95f, 1));
+    llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40));
+    llama_sampler_chain_add(smpl, llama_sampler_init_penalties(
+        /*penalty_last_n*/ 64,
+        /*penalty_repeat*/ 1.15f,
+        /*penalty_freq*/ 0.0f,
+        /*penalty_present*/ 0.0f
+    ));
+    llama_sampler_chain_add(smpl, llama_sampler_init_dist(0));
 
     std::ostringstream ss;
     ss << "module {\n"; // Account for the prompt priming
@@ -156,28 +227,31 @@ private:
     return ss.str();
   }
 
-  std::string extractMLIR(const std::string& raw) {
-    size_t start = raw.find("module {");
-    if (start == std::string::npos) return raw; // Fallback
-
-    int depth = 0;
-    for (size_t i = start; i < raw.size(); i++) {
-      if (raw[i] == '{') depth++;
-      else if (raw[i] == '}') {
-        depth--;
-        if (depth == 0) {
-          return raw.substr(start, i - start + 1);
-        }
-      }
-    }
+  std::string extractGetThrust(const std::string& raw) {
+    // Find get_thrust function start
+    size_t fnStart = raw.find("func.func @get_thrust");
+    if (fnStart == std::string::npos) return "";
     
-    // Fallback if the model didn't perfectly close braces but wrote some code
-    size_t end = raw.find("```");
-    if (end != std::string::npos) {
-      return raw.substr(start, end - start);
+    // Find the module start before it
+    size_t modStart = raw.rfind("module {", fnStart);
+    if (modStart == std::string::npos) modStart = fnStart;
+    
+    // Walk forward to find matching closing brace of get_thrust
+    size_t pos = fnStart;
+    int depth = 0;
+    bool started = false;
+    while (pos < raw.size()) {
+        if (raw[pos] == '{') { depth++; started = true; }
+        if (raw[pos] == '}') { depth--; }
+        if (started && depth == 0) {
+            // Build isolated module with only get_thrust
+            return "module {\n" + 
+                   raw.substr(fnStart, pos - fnStart + 1) + 
+                   "\n}";
+        }
+        pos++;
     }
-
-    return raw; 
+    return "";
   }
 };
 
