@@ -1,4 +1,7 @@
 #!/bin/bash
+export PATH="/usr/local/google/home/antoniopaulino/tools/cmake-3.31.5-linux-x86_64/bin:/usr/local/google/home/antoniopaulino/tools:$PATH"
+export CC=/usr/bin/gcc
+export CXX=/usr/bin/g++
 set -e # Exit immediately if a command exits with a non-zero status.
 
 # Determine project root (one level up from scripts/)

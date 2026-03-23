@@ -11,10 +11,10 @@ namespace mlir {
 namespace tensorlang {
 
 JitContext::JitContext() {
-  initWorker();
 }
 
 void JitContext::initWorker() {
+  if (worker_) return;
   worker_ = std::make_unique<OptimizationWorker>(
       [this](void* fnPtr, const std::string& newIR) {
         setOptimizedFunction(fnPtr);
@@ -22,6 +22,8 @@ void JitContext::initWorker() {
         saveLobe("latest_async_repair", newIR);
         printf("[Worker] Hot-swap complete. New logic is active.\n");
       });
+  // Give the thread a moment to initialize its loop
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 JitContext& JitContext::getInstance() {
@@ -74,7 +76,10 @@ void JitContext::shutdown() {
   modelRunner_.reset();
 }
 
-OptimizationWorker& JitContext::getWorker() { return *worker_; }
+OptimizationWorker& JitContext::getWorker() {
+  if (!worker_) initWorker();
+  return *worker_;
+}
 
 // ---------------------------------------------------------------------------
 // Lobe Registry

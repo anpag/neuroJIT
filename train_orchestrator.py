@@ -6,7 +6,7 @@ import subprocess
 DATA_FILE = "tensorlang_training_data.jsonl"
 TRAIN_FILE = "train_data.txt"
 ADAPTER_OUT = "adapter_latest.bin"
-MODEL_PATH = "tensorlang/runtime/models/qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+MODEL_PATH = "tensorlang/runtime/models/deepseek-r1-32b-q4_k_m.gguf"
 THRESHOLD = 1 # Trigger immediately
 
 def get_line_count(filepath):

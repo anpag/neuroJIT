@@ -39,9 +39,12 @@
 // Correct Header for EPCDynamicLibrarySearchGenerator
 #include "llvm/ExecutionEngine/Orc/EPCDynamicLibrarySearchGenerator.h"
 
+#include <mutex>
+
 using namespace mlir;
 using namespace mlir::tensorlang;
 
+static std::once_flag init_once;
 static std::string g_last_error_msg;
 
 extern "C" {
@@ -54,8 +57,10 @@ JitRunner::JitRunner(std::unique_ptr<llvm::orc::LLJIT> jit) : jit(std::move(jit)
 JitRunner::~JitRunner() = default;
 
 llvm::Expected<std::unique_ptr<JitRunner>> JitRunner::create() {
-  llvm::InitializeNativeTarget();
-  llvm::InitializeNativeTargetAsmPrinter();
+  std::call_once(init_once, []() {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+  });
   auto jitBuilder = llvm::orc::LLJITBuilder();
   auto jitOrError = jitBuilder.create();
   if (auto error = jitOrError.takeError()) return std::move(error);
@@ -124,11 +129,6 @@ llvm::Error JitRunner::loadModule(ModuleOp module) {
   auto llvmModule = translateModuleToLLVMIR(module, *llvmContext);
   if (!llvmModule) return llvm::make_error<llvm::StringError>("Translation failed", llvm::inconvertibleErrorCode());
   
-  std::string llvm_ir_str;
-  llvm::raw_string_ostream llvm_os(llvm_ir_str);
-  llvmModule->print(llvm_os, nullptr);
-  llvm::errs() << "LLVM IR contains sim_main? " << (llvm_ir_str.find("sim_main") != std::string::npos ? "YES" : "NO") << "\n";
-
   return jit->addIRModule(llvm::orc::ThreadSafeModule(std::move(llvmModule), std::move(llvmContext)));
 }
 

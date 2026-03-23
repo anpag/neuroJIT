@@ -28,6 +28,7 @@ public:
   int load(const std::string& modelPath) override {
     llama_model_params mparams = llama_model_default_params();
     mparams.n_gpu_layers = 0; // CPU only
+    mparams.use_mmap = false; // Force the model entirely into RAM
 
     printf("[LLM] Loading model: %s\n", modelPath.c_str());
     muscleModel_ = llama_model_load_from_file(modelPath.c_str(), mparams);
@@ -59,8 +60,7 @@ public:
       }
     }
 
-    // A large context window is needed to hold the full MLIR module
-    llama_context* ctx = createContext(muscleModel_, 4096);
+    llama_context* ctx = createContext(muscleModel_, 8192); // Increase context for large AST
     if (!ctx) return "";
 
     if (currentAdapter_) {
@@ -69,13 +69,12 @@ public:
     }
 
     std::string history = getHistory();
-    std::string constraint = getSeedConstraint();
-    std::string formatted = formatPrompt(prompt, history, constraint);
+    std::string formatted = formatPrompt(prompt, history);
     
-    std::string raw = runInference(ctx, muscleModel_, formatted, 2048);
+    std::string rawJSON = runInference(ctx, muscleModel_, formatted, 1024);
     llama_free(ctx);
 
-    return extractGetThrust(raw);
+    return rawJSON;
   }
 
 private:
@@ -88,91 +87,39 @@ private:
   llama_context* createContext(llama_model* m, int n_ctx) {
     if (!m) return nullptr;
     llama_context_params p = llama_context_default_params();
-    p.n_ctx           = n_ctx;
-    unsigned int nCores = std::max(1u, std::thread::hardware_concurrency() / 2);
-    p.n_threads       = nCores;
-    p.n_threads_batch = nCores;
-    fprintf(stderr, "[Llama] Using %u threads\n", nCores);
+    p.n_ctx           = 1024; // Keep context small to save RAM
+    p.n_threads       = 16;
+    p.n_threads_batch = 16;
+    fprintf(stderr, "[Llama] Using 16 threads\n");
     return llama_init_from_model(m, p);
   }
 
   std::string getHistory() {
-    std::ifstream file("tensorlang_training_data.jsonl");
-    if (!file.is_open()) return "No previous attempts.\n";
-
-    std::vector<std::string> lines;
-    std::string line;
-    while (std::getline(file, line)) {
-      if (!line.empty()) lines.push_back(line);
-    }
-
-    std::ostringstream ss;
-    int count = 0;
-    for (int i = lines.size() - 1; i >= 0 && count < 3; --i, ++count) {
-      // Very simple JSON extraction for speed (avoiding extra deps)
-      size_t patchStart = lines[i].find("\"generated_patch\":\"");
-      if (patchStart == std::string::npos) continue;
-      patchStart += 19;
-      size_t patchEnd = lines[i].find("\",\"compiled\"", patchStart);
-      if (patchEnd == std::string::npos) continue;
-      
-      std::string patch = lines[i].substr(patchStart, patchEnd - patchStart);
-      // Unescape newlines
-      size_t pos = 0;
-      while ((pos = patch.find("\\n", pos)) != std::string::npos) {
-        patch.replace(pos, 2, "\n");
-        pos += 1;
-      }
-
-      size_t rewardStart = lines[i].find("\"reward\":");
-      std::string reward = "unknown";
-      if (rewardStart != std::string::npos) {
-        rewardStart += 9;
-        size_t rewardEnd = lines[i].find(",", rewardStart);
-        if (rewardEnd == std::string::npos) rewardEnd = lines[i].find("}", rewardStart);
-        if (rewardEnd != std::string::npos) reward = lines[i].substr(rewardStart, rewardEnd - rewardStart);
-      }
-
-      ss << "Attempt " << (count + 1) << " (Reward: " << reward << "):\n" << patch << "\n\n";
-    }
-    return ss.str();
+    // Phase 3: history management will be handled by MCTS later.
+    return "[]\n";
   }
 
-  std::string getSeedConstraint() {
-    static const std::vector<std::string> constraints = {
-      "The base thrust must be between 0.5 and 1.0",
-      "The velocity coefficient must be negative",
-      "Use at least 3 arithmetic operations",
-      "The thrust must decrease as height increases",
-      "Use a coefficient greater than 1.0 for velocity scaling",
-    };
-    std::uniform_int_distribution<int> dist(0, constraints.size() - 1);
-    return constraints[dist(rng_)];
-  }
-
-  std::string formatPrompt(const std::string& ir_before, const std::string& history, const std::string& constraint) {
+  std::string formatPrompt(const std::string& ir_before, const std::string& history) {
     std::ostringstream ss;
     ss << "<|im_start|>system\n"
-       << "You are an MLIR compiler engineer. You rewrite broken MLIR functions.\n"
-       << "Write a NEW function @get_thrust(%h: f32, %v: f32) -> f32 that uses %h (height) and %v (velocity) to compute thrust.\n\n"
-       << "Rules:\n"
-       << "- Use ONLY these ops: arith.constant, arith.addf, arith.subf, arith.mulf, arith.negf, arith.select, arith.cmpf\n"
-       << "- Return a single f32 value inside a module block.\n"
-       << "- No loops, no branches.\n"
-       << "- Use DIFFERENT constants than previous attempts.\n"
-       << "- Additional constraint this round: " << constraint << "\n\n"
-       << "Previous attempts and their scores:\n"
+       << "You are an AI compiler optimization agent. Your task is to analyze the provided MLIR AST and propose a discrete mutation to improve its fitness score. You must output a strictly formatted JSON object.\n\n"
+       << "Output Schema:\n"
+       << "{\n"
+       << "  \"action\": \"<mutateConstant|swapBinaryOperator>\",\n"
+       << "  \"target\": \"<string_name_of_function_or_ssa_value>\",\n"
+       << "  \"value\": <float>,\n"
+       << "  \"new_op\": \"<string_op_name>\"\n"
+       << "}\n\n"
+       << "Previous Actions (History):\n"
        << history << "\n"
-       << "Return ONLY the module block starting with 'module {'. No explanation. No markdown.\n"
+       << "Return ONLY the JSON. No explanation. No markdown.\n"
        << "<|im_end|>\n"
        << "<|im_start|>user\n"
-       << "The following get_thrust function is broken. Fix it.\n\n"
-       << "BROKEN FUNCTION:\n"
+       << "CURRENT MLIR AST:\n"
        << ir_before << "\n\n"
-       << "Output the fixed module now.\n"
+       << "Output your JSON mutation now.\n"
        << "<|im_end|>\n"
-       << "<|im_start|>assistant\n"
-       << "module {\n";
+       << "<|im_start|>assistant\n";
     return ss.str();
   }
 
@@ -194,20 +141,31 @@ private:
     auto sparams = llama_sampler_chain_default_params();
     llama_sampler* smpl = llama_sampler_chain_init(sparams);
     
-    // Apply new sampling logic for diversity
     llama_sampler_chain_add(smpl, llama_sampler_init_temp(0.8f));
     llama_sampler_chain_add(smpl, llama_sampler_init_top_p(0.95f, 1));
     llama_sampler_chain_add(smpl, llama_sampler_init_top_k(40));
     llama_sampler_chain_add(smpl, llama_sampler_init_penalties(
-        /*penalty_last_n*/ 64,
-        /*penalty_repeat*/ 1.15f,
-        /*penalty_freq*/ 0.0f,
-        /*penalty_present*/ 0.0f
+        64, 1.15f, 0.0f, 0.0f
     ));
     llama_sampler_chain_add(smpl, llama_sampler_init_dist(0));
 
+    // Hardcoded GBNF Grammar for strictly formatted JSON object
+    const char* grammarStr = R"(
+root ::= "{" ws "\"action\"" ws ":" ws action_val ws "," ws "\"target\"" ws ":" ws string ws "," ws "\"value\"" ws ":" ws number ws "," ws "\"new_op\"" ws ":" ws string ws "}"
+ws ::= [ \t\n]*
+action_val ::= "\"mutateConstant\"" | "\"swapBinaryOperator\""
+string ::= "\"" [a-zA-Z0-9_.-]* "\""
+number ::= "-"? [0-9]+ ("." [0-9]+)?
+)";
+
+    llama_sampler* grammar_sampler = llama_sampler_init_grammar(vocab, grammarStr, "root");
+    if (grammar_sampler) {
+        llama_sampler_chain_add(smpl, grammar_sampler);
+    } else {
+        fprintf(stderr, "[Llama] WARNING: Failed to initialize grammar sampler.\n");
+    }
+
     std::ostringstream ss;
-    ss << "module {\n"; // Account for the prompt priming
     llama_token id;
 
     for (int i = 0; i < n_predict; i++) {
@@ -219,39 +177,14 @@ private:
       std::string piece(buf, n);
       ss << piece;
 
+      llama_sampler_accept(smpl, id);
+
       batch = llama_batch_get_one(&id, 1);
       if (llama_decode(ctx, batch)) break;
     }
 
     llama_sampler_free(smpl);
     return ss.str();
-  }
-
-  std::string extractGetThrust(const std::string& raw) {
-    // Find get_thrust function start
-    size_t fnStart = raw.find("func.func @get_thrust");
-    if (fnStart == std::string::npos) return "";
-    
-    // Find the module start before it
-    size_t modStart = raw.rfind("module {", fnStart);
-    if (modStart == std::string::npos) modStart = fnStart;
-    
-    // Walk forward to find matching closing brace of get_thrust
-    size_t pos = fnStart;
-    int depth = 0;
-    bool started = false;
-    while (pos < raw.size()) {
-        if (raw[pos] == '{') { depth++; started = true; }
-        if (raw[pos] == '}') { depth--; }
-        if (started && depth == 0) {
-            // Build isolated module with only get_thrust
-            return "module {\n" + 
-                   raw.substr(fnStart, pos - fnStart + 1) + 
-                   "\n}";
-        }
-        pos++;
-    }
-    return "";
   }
 };
 

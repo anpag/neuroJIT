@@ -20,30 +20,12 @@ int MockModelRunner::load(const std::string& modelPath) {
 }
 
 std::string MockModelRunner::query(const std::string& prompt) {
-  if (prompt.find("Lunar Lander") != std::string::npos) {
-    return R"(module {
-  llvm.func @printf(!llvm.ptr, ...) -> i32
-  llvm.mlir.global internal constant @msg("------------------------------------------------\0A[NeuroJIT] SYSTEM RECOVERY SUCCESSFUL\0A[NeuroJIT] Logic Patched: Soft Landing Sequence Engaged\0A[NeuroJIT] Simulation Finished Safely.\0A------------------------------------------------\0A\00")
-  
-  func.func @main() -> i32 {
-    %fmt = llvm.mlir.addressof @msg : !llvm.ptr
-    llvm.call @printf(%fmt) vararg(!llvm.func<i32 (ptr, ...)>) : (!llvm.ptr) -> i32
-    %c0 = arith.constant 0 : i32
-    return %c0 : i32
-  }
-})";
-  }
-  
-  if (prompt.find("Optimize") != std::string::npos) {
-    return R"(module {
-      func.func @main() -> i32 {
-        %c0 = arith.constant 0 : i32
-        return %c0 : i32
-      }
-    })";
-  }
-  
-  return "(null)";
+  // Return a JSON mutation as expected by OptimizationWorker
+  return R"({
+    "action": "mutateConstant",
+    "target": "matmul",
+    "value": 64
+  })";
 }
 
 } // namespace tensorlang

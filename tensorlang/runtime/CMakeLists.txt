@@ -8,6 +8,8 @@ add_library(TensorLangRuntime STATIC
   OptimizationWorker.cpp
   VerificationSandbox.cpp
   ExperienceLogger.cpp
+  ASTMutator.cpp
+  MatmulSpeedEvaluator.cpp
   # NEW FILES ADDED IN V2:
 )
 

@@ -8,15 +8,28 @@
 #include <atomic>
 #include <functional>
 #include <string>
+#include <vector>
+#include <memory>
 
 namespace mlir {
 namespace tensorlang {
+
+class IEvaluator; // Forward declare
+
+struct MCTSNode {
+  std::string irState;
+  int visits = 0;
+  float totalScore = 0.0f;
+  std::vector<std::shared_ptr<MCTSNode>> children;
+  std::weak_ptr<MCTSNode> parent;
+};
 
 /// A generic request submitted to the background optimization worker.
 struct OptimizationRequest {
   std::string functionName;    ///< The function that needs attention.
   std::string originalIR;      ///< Current MLIR module string.
   std::string errorMessage;    ///< If empty, it's an optimization request. If populated, it's a crash/repair request.
+  IEvaluator* evaluator = nullptr; ///< The evaluator interface to use during MCTS simulations.
 };
 
 /// Callback invoked on the calling thread when better/fixed MLIR is compiled.
@@ -43,9 +56,9 @@ private:
   void workerLoop();
 
   HotSwapCallback hotSwapCb_;
-  std::queue<OptimizationRequest> queue_;
-  std::mutex queueMutex_;
-  std::condition_variable cv_;
+  std::queue<std::unique_ptr<OptimizationRequest>> queue_;
+  std::unique_ptr<std::mutex> queueMutex_;
+  std::unique_ptr<std::condition_variable> cv_;
   std::thread thread_;
   std::atomic<bool> shutdown_{false};
   std::atomic<bool> busy_{false};
