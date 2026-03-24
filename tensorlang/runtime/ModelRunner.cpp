@@ -20,11 +20,12 @@ int MockModelRunner::load(const std::string& modelPath) {
 }
 
 std::string MockModelRunner::query(const std::string& prompt) {
-  // Return a JSON mutation as expected by OptimizationWorker
+  // Return a JSON mutation as expected by ASTMutator
   return R"({
-    "action": "mutateConstant",
-    "target": "matmul",
-    "value": 64
+    "target_function": "matmul",
+    "mutations": [
+      { "type": "unroll", "loop_depth": 1, "factor": 4 }
+    ]
   })";
 }
 

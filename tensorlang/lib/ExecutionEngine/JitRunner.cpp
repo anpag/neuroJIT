@@ -1,3 +1,4 @@
+#include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "tensorlang/ExecutionEngine/JitRunner.h"
 #include "tensorlang/Conversion/TensorLangToLinalg/TensorLangToLinalg.h"
 #include "tensorlang/Dialect/TensorLang/Transforms/Passes.h"
@@ -80,6 +81,7 @@ llvm::Error JitRunner::run(ModuleOp module) {
   pm.addPass(bufferization::createOneShotBufferizePass(options));
   pm.addPass(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createConvertLinalgToLoopsPass());
+  pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(memref::createExpandStridedMetadataPass());
   pm.addPass(createConvertSCFToCFPass());
   pm.addPass(createConvertControlFlowToLLVMPass());
@@ -103,9 +105,23 @@ llvm::Expected<int> JitRunner::invoke(llvm::StringRef functionName) {
 }
 
 llvm::Expected<void*> JitRunner::lookup(llvm::StringRef name) {
-  auto sym = jit->lookup(name);
-  if (!sym) return sym.takeError();
-  return (void*)(intptr_t)sym->getValue();
+  // Search from the newest dylib to the oldest
+  for (auto it = loadedDylibs.rbegin(); it != loadedDylibs.rend(); ++it) {
+    if (auto sym = jit->lookup(**it, name)) {
+      return (void*)(intptr_t)sym->getValue();
+    } else {
+      llvm::consumeError(sym.takeError());
+    }
+  }
+
+  // Fallback to main dylib
+  if (auto sym = jit->lookup(name)) {
+    return (void*)(intptr_t)sym->getValue();
+  } else {
+    llvm::consumeError(sym.takeError());
+  }
+
+  return llvm::make_error<llvm::StringError>("Symbol not found", llvm::inconvertibleErrorCode());
 }
 
 llvm::Error JitRunner::loadModule(ModuleOp module) {
@@ -117,6 +133,7 @@ llvm::Error JitRunner::loadModule(ModuleOp module) {
   pm.addPass(bufferization::createOneShotBufferizePass(options));
   pm.addPass(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createConvertLinalgToLoopsPass());
+  pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(memref::createExpandStridedMetadataPass());
   pm.addPass(createConvertSCFToCFPass());
   pm.addPass(createConvertControlFlowToLLVMPass());
@@ -148,6 +165,7 @@ llvm::Error JitRunner::compile(ModuleOp module) {
   pm.addPass(createCanonicalizerPass());
   pm.addPass(mlir::createConvertVectorToSCFPass());
   pm.addPass(mlir::createConvertLinalgToLoopsPass());
+  pm.addPass(mlir::createLowerAffinePass());
   pm.addPass(memref::createExpandStridedMetadataPass());
   pm.addPass(createConvertSCFToCFPass());
   pm.addPass(createConvertControlFlowToLLVMPass());

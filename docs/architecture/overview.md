@@ -1,37 +1,57 @@
-# Architectural Specification: The NeuroJIT Framework
+# Technical Architecture: The NeuroJIT Self-Optimization Loop
 
-## 1. Abstract / Executive Summary
-The NeuroJIT compilation pipeline functions as an autonomous, closed-loop system integrating runtime execution, architectural reflection, and generative inference.
+The NeuroJIT Framework operates as a closed-loop autonomous system where runtime execution metrics guide the evolution of machine code.
+
+## 1. The Optimization Cycle
+
+The core lifecycle of the engine is orchestrated by the `OptimizationWorker`, which manages a Monte Carlo Tree Search (MCTS).
 
 ```mermaid
 graph TD
-    User["User Code (TensorLang)"] --> Runtime
-    Runtime["JIT Execution Engine"] -- "1. Detects Suboptimal Evaluation / Exception" --> Introspection
-    Introspection["Reflection Layer"] -- "2. Extracts Intermediate Representation" --> Reasoning
-    Reasoning["Reasoning Agent (DeepSeek-R1)"] -- "3. Synthesizes Evolved Architecture" --> Compiler
-    Compiler["LLVM/MLIR Compilation Backend"] -- "4. Verifies & Lowers to LLVM IR" --> MachineCode
-    MachineCode["Executable x86_64 Machine Code"] -- "5. Asynchronous Pointer Hot-Swap" --> Runtime
+    subgraph "Main Thread"
+        ActiveCode["Active MLIR Module"] --> Execution["LLVM ORC Runtime"]
+        Execution --> Performance["Fitness Evaluator"]
+    end
+
+    Performance -- "Baseline Data" --> MCTS
+    
+    subgraph "Optimization Thread (MCTS)"
+        MCTS["MCTS Orchestrator"] --> Selection["Node Selection (UCB1)"]
+        Selection --> Prompting["DeepSeek-R1 (32B)"]
+        Prompting --> Mutation["AST Mutator (MLIR API)"]
+        Mutation --> Sandbox["JIT Sandbox Isolation"]
+        Sandbox -- "Fitness Score" --> MCTS
+    end
+
+    MCTS -- "If Improved" --> HotSwap["Atomic Pointer Swap"]
+    HotSwap --> ActiveCode
 ```
 
-## 2. Component Architecture
+## 2. Core Components
 
-### 2.1 The Intermediate Representation: TensorLang
-The framework utilizes a specialized Domain Specific Language (DSL) denoted as `TensorLang`. This dialect is constructed within the **MLIR** (Multi-Level Intermediate Representation) infrastructure.
-*   **Structural Preservation:** In contrast to traditional compilation paradigms (e.g., C++, Python) which abstract structural logic during lowering, the MLIR implementation preserves geometric and topological operations (e.g., loop nests, matrix dimensions), ensuring the Reasoning Agent parses explicit semantic intent.
+### 2.1 The AST Mutator (`ASTMutator.cpp`)
+The AST Mutator is a specialized C++ class that parses JSON commands from the LLM and applies physical transformations to an in-memory MLIR `ModuleOp`.
+*   **Unroll Loop**: Uses `mlir::affine::loopUnrollByFactor` to expand loop bodies, reducing branching overhead.
+*   **Tile Loop**: Uses `mlir::affine::tilePerfectlyNested` to improve cache locality for matrix operations.
+*   **Verification**: Every mutation is validated via `mlir::verify()` to ensure no invalid IR is ever sent to the JIT.
 
-### 2.2 The Execution Engine (JIT)
-Execution is orchestrated by the **LLVM ORC JIT** framework.
-*   **Runtime Observability:** The engine performs continuous evaluation of executable memory.
-*   **Diagnostic Interception:** The compiler utilizes `tensorlang.assert` invariants and a `mlir::ScopedDiagnosticHandler` to intercept execution deviations and compilation failures.
+### 2.2 The Isolated Sandbox (`VerificationSandbox.cpp`)
+To prevent crashes in the main process, candidate mutations are compiled and evaluated in an isolated JIT context. 
+*   **Safety**: The sandbox captures LLVM diagnostics and prevents invalid code from corrupting the main process state.
+*   **Benchmarking**: It measures execution time using `std::chrono` inside a compliant C-Interface wrapper.
 
-### 2.3 The Generative Inference Pipeline
-The framework integrates embedded inference systems (e.g., `llama.cpp`) to dynamically generate intermediate representation logic.
-*   **Contextual Prompt Formulation:** The Execution Engine synthesizes contextual prompts derived from active runtime failures or performance bottlenecks (e.g., providing the specific `loc(line:col)` diagnostic and the active MLIR module).
-*   **Generative Lowering:** The pipeline operates on an asymmetric multi-agent architecture (Reasoning Agent and Synthesis Engine) to return syntactically valid MLIR components.
+### 2.3 The AI Oracle (`LlamaCppModelRunner.cpp`)
+A local instance of `llama.cpp` hosting `deepseek-r1-32b-q4_k_m.gguf`.
+*   **GBNF Grammar**: Strictly constrains the model output to a valid JSON schema, preventing natural language hallucinations.
+*   **Prompt Formulation**: Injects the current IR state and performance history to provide the model with context for reasoning.
 
-### 2.4 The Asynchronous Hot-Swap Protocol
-Dynamic execution modification is achieved through a multi-stage pointer swap:
-1.  The synthesized MLIR is compiled into a dynamic shared object within volatile memory.
-2.  The engine employs explicit function pointer indirection.
-3.  The active execution pointer is atomically redirected from the deprecated instruction set to the evolved implementation.
-4.  The active simulation thread resumes evaluation without interrupting the overarching process lifecycle.
+### 2.4 The Hot-Swap Integration
+When the MCTS loop identifies a mutation with a fitness score strictly higher than the current baseline:
+1.  The winner is compiled into the main JIT context.
+2.  The symbol address is resolved via the JIT's dynamic library stack.
+3.  The main thread's active function pointer is updated atomically.
+
+## 3. Persistent Memory & Lobe Cache
+NeuroJIT maintains a "Lobe Cache" of verified optimal MLIR modules.
+*   **L1 (Volatile)**: In-process map of optimized functions.
+*   **L2 (Persistent)**: Filesystem registry at `~/.neurojit/lobes/`, allowing the system to "remember" optimizations across reboots.

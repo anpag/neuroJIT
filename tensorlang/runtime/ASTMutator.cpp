@@ -3,6 +3,11 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/OperationSupport.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
+#include "mlir/IR/Verifier.h"
+#include <regex>
+#include <iostream>
 
 namespace mlir {
 namespace tensorlang {
@@ -89,6 +94,76 @@ std::optional<mlir::ModuleOp> ASTMutator::swapBinaryOperator(mlir::ModuleOp base
   
   targetOp->replaceAllUsesWith(newOp);
   targetOp->erase();
+
+  return clonedModule;
+}
+
+std::optional<mlir::ModuleOp> ASTMutator::applyMutations(mlir::ModuleOp baseModule, llvm::StringRef jsonCommand) {
+  std::string jsonStr = jsonCommand.str();
+  
+  std::smatch match;
+  std::string targetFuncName = "matmul"; // Default
+  std::regex target_regex(R"regex("target_function"\s*:\s*"([^"]+)")regex");
+  if (std::regex_search(jsonStr, match, target_regex)) {
+    targetFuncName = match[1].str();
+  }
+
+  mlir::ModuleOp clonedModule = baseModule.clone();
+  auto funcOp = clonedModule.lookupSymbol<mlir::func::FuncOp>(targetFuncName);
+  
+  if (!funcOp) {
+    std::cerr << "[ASTMutator] Target function '" << targetFuncName << "' not found.\n";
+    clonedModule.erase();
+    return std::nullopt;
+  }
+
+  // Parse unroll
+  std::regex unroll_regex(R"regex("type"\s*:\s*"unroll".*?"factor"\s*:\s*(\d+))regex");
+  if (std::regex_search(jsonStr, match, unroll_regex)) {
+    uint64_t unrollFactor = std::stoull(match[1].str());
+    
+    mlir::affine::AffineForOp targetLoop;
+    funcOp.walk([&](mlir::affine::AffineForOp forOp) {
+      if (!targetLoop) targetLoop = forOp; // take outermost
+    });
+    
+    if (targetLoop && unrollFactor > 1) {
+      if (mlir::failed(mlir::affine::loopUnrollByFactor(targetLoop, unrollFactor))) {
+        std::cerr << "[ASTMutator] loopUnrollByFactor failed.\n";
+      } else {
+        std::cout << "[ASTMutator] Applied unrollLoop with factor " << unrollFactor << "\n";
+      }
+    }
+  }
+
+  // Parse tile
+  std::regex tile_regex(R"regex("type"\s*:\s*"tile".*?"sizes"\s*:\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\])regex");
+  if (std::regex_search(jsonStr, match, tile_regex)) {
+    llvm::SmallVector<unsigned, 3> tileSizes;
+    tileSizes.push_back(std::stoul(match[1].str()));
+    tileSizes.push_back(std::stoul(match[2].str()));
+    tileSizes.push_back(std::stoul(match[3].str()));
+
+    llvm::SmallVector<mlir::affine::AffineForOp, 3> band;
+    funcOp.walk([&](mlir::affine::AffineForOp forOp) {
+      band.push_back(forOp);
+    });
+
+    if (!band.empty()) {
+      llvm::SmallVector<mlir::affine::AffineForOp, 3> tiledBand;
+      if (mlir::failed(mlir::affine::tilePerfectlyNested(band, tileSizes, &tiledBand))) {
+        std::cerr << "[ASTMutator] tilePerfectlyNested failed.\n";
+      } else {
+        std::cout << "[ASTMutator] Applied tileLoop with sizes [" << tileSizes[0] << ", " << tileSizes[1] << ", " << tileSizes[2] << "]\n";
+      }
+    }
+  }
+
+  if (mlir::failed(mlir::verify(clonedModule))) {
+    std::cerr << "[ASTMutator] Verification failed after mutations.\n";
+    clonedModule.erase();
+    return std::nullopt;
+  }
 
   return clonedModule;
 }

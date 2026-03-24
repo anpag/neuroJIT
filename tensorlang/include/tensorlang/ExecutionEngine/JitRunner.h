@@ -57,6 +57,7 @@ private:
 
   std::unique_ptr<llvm::orc::LLJIT> jit;
   int dylibCount = 0;
+  std::vector<llvm::orc::JITDylib*> loadedDylibs;
 };
 
 } // namespace tensorlang

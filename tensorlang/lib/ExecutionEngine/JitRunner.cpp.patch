@@ -1,0 +1,29 @@
+--- /usr/local/google/home/antoniopaulino/dev/git/neuroJIT/tensorlang/lib/ExecutionEngine/JitRunner.cpp
++++ /usr/local/google/home/antoniopaulino/dev/git/neuroJIT/tensorlang/lib/ExecutionEngine/JitRunner.cpp
+@@ -107,17 +107,24 @@
+ llvm::Expected<void*> JitRunner::lookup(llvm::StringRef name) {
+   auto& ES = jit->getExecutionSession();
+   auto mangledName = jit->mangleAndIntern(name);
+   
+   // Search from the newest dylib to the oldest
+   for (auto it = loadedDylibs.rbegin(); it != loadedDylibs.rend(); ++it) {
+-    std::vector<llvm::orc::JITDylib*> searchOrder;
+-    searchOrder.push_back(*it);
+-    if (auto sym = ES.lookup(searchOrder, mangledName)) {
+-      return (void*)(intptr_t)sym->getAddress().getValue();
++    // ES.lookup using JITDylibSearchOrder allows us to specify MatchAllSymbols
++    llvm::orc::JITDylibSearchOrder searchOrder;
++    searchOrder.push_back({*it, llvm::orc::JITDylibLookupFlags::MatchAllSymbols});
++    
++    // ES.lookup with SearchOrder has a different signature:
++    // lookup(SearchOrder, Symbol, SymbolState::Ready)
++    auto sym = ES.lookup(searchOrder, mangledName);
++    if (sym) {
++      return (void*)(intptr_t)sym->getAddress().getValue();
+     } else {
+       llvm::consumeError(sym.takeError());
+     }
+   }
+ 
+   // Fallback to main dylib
+   if (auto sym = jit->lookup(name)) {

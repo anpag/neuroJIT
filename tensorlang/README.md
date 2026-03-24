@@ -1,6 +1,6 @@
 # TensorLang: The Core
 
-This directory contains the implementation of the TensorLang compiler infrastructure.
+This directory contains the implementation of the TensorLang compiler infrastructure. For the overarching system architecture and self-optimization loop, see the [Root README](../README.md).
 
 ## Directory Structure
 

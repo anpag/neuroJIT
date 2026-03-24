@@ -115,7 +115,7 @@ int tensorlang_compile(const char* ir_string) {
   if (!ir_string) return -1;
   auto* runner = mlir::tensorlang::JitContext::getInstance().getRunner();
   if (!runner) return -1;
-  if (auto err = runner->compileString(ir_string)) {
+  if (auto err = runner->loadString(ir_string)) {
     llvm::errs() << "[JIT] Compile error: " << llvm::toString(std::move(err)) << "\n";
     return -1;
   }

@@ -87,10 +87,11 @@ private:
   llama_context* createContext(llama_model* m, int n_ctx) {
     if (!m) return nullptr;
     llama_context_params p = llama_context_default_params();
-    p.n_ctx           = 1024; // Keep context small to save RAM
+    p.n_ctx           = 4096; // Increase context
+    p.n_batch         = 4096; // Increase batch size to match context
     p.n_threads       = 16;
     p.n_threads_batch = 16;
-    fprintf(stderr, "[Llama] Using 16 threads\n");
+    fprintf(stderr, "[Llama] Using 16 threads, ctx/batch=4096\n");
     return llama_init_from_model(m, p);
   }
 
@@ -105,10 +106,11 @@ private:
        << "You are an AI compiler optimization agent. Your task is to analyze the provided MLIR AST and propose a discrete mutation to improve its fitness score. You must output a strictly formatted JSON object.\n\n"
        << "Output Schema:\n"
        << "{\n"
-       << "  \"action\": \"<mutateConstant|swapBinaryOperator>\",\n"
-       << "  \"target\": \"<string_name_of_function_or_ssa_value>\",\n"
-       << "  \"value\": <float>,\n"
-       << "  \"new_op\": \"<string_op_name>\"\n"
+       << "  \"target_function\": \"matmul\",\n"
+       << "  \"mutations\": [\n"
+       << "    { \"type\": \"unroll\", \"loop_depth\": 1, \"factor\": 4 },\n"
+       << "    { \"type\": \"tile\", \"sizes\": [32, 32, 32] }\n"
+       << "  ]\n"
        << "}\n\n"
        << "Previous Actions (History):\n"
        << history << "\n"
@@ -149,21 +151,30 @@ private:
     ));
     llama_sampler_chain_add(smpl, llama_sampler_init_dist(0));
 
-    // Hardcoded GBNF Grammar for strictly formatted JSON object
-    const char* grammarStr = R"(
-root ::= "{" ws "\"action\"" ws ":" ws action_val ws "," ws "\"target\"" ws ":" ws string ws "," ws "\"value\"" ws ":" ws number ws "," ws "\"new_op\"" ws ":" ws string ws "}"
-ws ::= [ \t\n]*
-action_val ::= "\"mutateConstant\"" | "\"swapBinaryOperator\""
-string ::= "\"" [a-zA-Z0-9_.-]* "\""
-number ::= "-"? [0-9]+ ("." [0-9]+)?
-)";
+    std::string grammarStr;
+    std::ifstream grammarFile("tensorlang/runtime/models/mutation.gbnf");
+    if (grammarFile.is_open()) {
+      std::ostringstream ss_gram;
+      ss_gram << grammarFile.rdbuf();
+      grammarStr = ss_gram.str();
+    } else {
+      fprintf(stderr, "[Llama] WARNING: Could not open grammar file.\n");
+    }
 
-    llama_sampler* grammar_sampler = llama_sampler_init_grammar(vocab, grammarStr, "root");
+    // Disable grammar sampler for now as it causes empty stack crashes in llama.cpp 
+    // with the DeepSeek 32B model tokenizer.
+    // The regex in ASTMutator is robust enough to extract the mutation anyway.
+    /*
+    llama_sampler* grammar_sampler = nullptr;
+    if (!grammarStr.empty()) {
+      grammar_sampler = llama_sampler_init_grammar(vocab, grammarStr.c_str(), "root");
+    }
     if (grammar_sampler) {
         llama_sampler_chain_add(smpl, grammar_sampler);
     } else {
         fprintf(stderr, "[Llama] WARNING: Failed to initialize grammar sampler.\n");
     }
+    */
 
     std::ostringstream ss;
     llama_token id;

@@ -20,6 +20,7 @@
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
 
 extern "C" {
 int tensorlang_compile(const char* ir_string);
@@ -103,14 +104,16 @@ void OptimizationWorker::workerLoop() {
     auto rootRes = VerificationSandbox::verifyCandidate(root->irState, req->functionName, evaluator);
     printf("[Worker] Root node evaluated. Status: %d, Fitness: %f\n", (int)rootRes.status, rootRes.fitnessScore);
     
-    float best_score_seen_so_far = rootRes.status == VerificationSandbox::VerificationResult::Success ? rootRes.fitnessScore : -10000.0f;
+    float baseline_score = rootRes.status == VerificationSandbox::VerificationResult::Success ? rootRes.fitnessScore : -10000.0f;
+    float best_score_seen_so_far = baseline_score;
     root->totalScore = best_score_seen_so_far;
     root->visits = 1;
 
-    bool hotSwapped = false;
+    void* best_fn_ptr = nullptr;
+    std::string best_ir_state;
     const int MCTS_ITERATIONS = 5;
 
-    for (int iter = 0; iter < MCTS_ITERATIONS && !hotSwapped && !shutdown_.load(); ++iter) {
+    for (int iter = 0; iter < MCTS_ITERATIONS && !shutdown_.load(); ++iter) {
       printf("[Worker] MCTS Iteration %d/%d\n", iter+1, MCTS_ITERATIONS);
       auto node = root;
       while (!node->children.empty()) {
@@ -138,32 +141,18 @@ void OptimizationWorker::workerLoop() {
         std::string rawJSON = runner->query(node->irState);
         if (rawJSON.empty()) continue;
 
-        auto j = nlohmann::json::parse(rawJSON, nullptr, false);
-        if (j.is_discarded()) continue;
-
-        std::string action;
-        float value = 0.0f;
-        std::string new_op;
-        if (j.contains("action") && j["action"].is_string()) action = j["action"];
-        if (j.contains("value") && j["value"].is_number()) value = j["value"];
-        if (j.contains("new_op") && j["new_op"].is_string()) new_op = j["new_op"];
-
         mlir::MLIRContext context;
         context.getOrLoadDialect<mlir::arith::ArithDialect>();
         context.getOrLoadDialect<mlir::func::FuncDialect>();
         context.getOrLoadDialect<mlir::scf::SCFDialect>();
         context.getOrLoadDialect<mlir::memref::MemRefDialect>();
         context.getOrLoadDialect<mlir::tensor::TensorDialect>();
+        context.getOrLoadDialect<mlir::affine::AffineDialect>();
         
         auto module = mlir::parseSourceString<mlir::ModuleOp>(node->irState, &context);
         if (!module) continue;
 
-        std::optional<mlir::ModuleOp> mutatedOpt;
-        if (action == "mutateConstant") {
-          mutatedOpt = ASTMutator::mutateConstant(*module, req->functionName, 0, value);
-        } else if (action == "swapBinaryOperator") {
-          mutatedOpt = ASTMutator::swapBinaryOperator(*module, req->functionName, 0, new_op);
-        }
+        std::optional<mlir::ModuleOp> mutatedOpt = ASTMutator::applyMutations(*module, rawJSON);
 
         if (mutatedOpt) {
           std::string mutatedIR;
@@ -205,14 +194,8 @@ void OptimizationWorker::workerLoop() {
         if (vRes.status == VerificationSandbox::VerificationResult::Success) {
           if (vRes.fitnessScore > best_score_seen_so_far) {
             best_score_seen_so_far = vRes.fitnessScore;
-            if (tensorlang_compile(child->irState.c_str()) == 0) {
-              void* fnPtr = tensorlang_get_symbol_address(req->functionName.c_str());
-              if (fnPtr) {
-                printf("[Worker] Found better fitness: %f! Hot-swapping...\n", best_score_seen_so_far);
-                hotSwapCb_(fnPtr, child->irState);
-                hotSwapped = true;
-              }
-            }
+            best_ir_state = child->irState;
+            printf("[Worker] Found better fitness: %f! Tracking for swap...\n", best_score_seen_so_far);
           }
         }
         auto curr = node;
@@ -223,6 +206,24 @@ void OptimizationWorker::workerLoop() {
         }
       }
     }
+    
+    if (!best_ir_state.empty() && best_score_seen_so_far > baseline_score) {
+      printf("[Worker] Attempting to compile winning IR...\n");
+      if (tensorlang_compile(best_ir_state.c_str()) == 0) {
+        void* fnPtr = tensorlang_get_symbol_address(req->functionName.c_str());
+        if (fnPtr) {
+          printf("[NeuroJIT] HOT SWAP TRIGGERED! Fitness improved from %f to %f\n", baseline_score, best_score_seen_so_far);
+          hotSwapCb_(fnPtr, best_ir_state);
+        } else {
+          printf("[Worker] FATAL: Symbol %s not found after successful compile!\n", req->functionName.c_str());
+        }
+      } else {
+        printf("[Worker] FATAL: Failed to compile winning IR!\n");
+      }
+    } else {
+      printf("[Worker] No swap triggered. best_ir_state.empty=%d, best_score=%f, baseline=%f\n", best_ir_state.empty(), best_score_seen_so_far, baseline_score);
+    }
+    
     processed_.fetch_add(1, std::memory_order_relaxed);
     busy_.store(false, std::memory_order_release);
   }

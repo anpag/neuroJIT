@@ -1,30 +1,27 @@
-# What is "Neurosymbolic" AI?
+# Neurosymbolic Optimization: MCTS & Seed AI
 
-You might hear "Neurosymbolic" and think it sounds like sci-fi jargon. It's actually a very simple concept that solves a massive problem in modern computing.
+NeuroJIT implements a "Seed AI" architecture where the compiler's optimization pass is not a fixed algorithm, but a search process guided by neural reasoning.
 
-It's the marriage of two different ways of thinking: **Logic** (Symbolic) and **Intuition** (Neural).
+## 1. Monte Carlo Tree Search (MCTS)
 
-## The Two Brains
+To explore the massive space of possible code transformations, NeuroJIT uses MCTS. Each node in the tree represents a state of the MLIR AST.
 
-### 1. Symbolic AI (The Rules)
-Think of this as **Old School Code**, Logic, or Algebra.
-*   **Strengths:** It is 100% precise. `1 + 1` always equals `2`. It follows strict rules. It is verifiable and safe.
-*   **Weaknesses:** It is rigid. If you miss a semicolon, it crashes. It cannot handle ambiguity. Writing optimization rules for every possible scenario is impossible for humans.
-*   **In NeuroJIT:** This is our compiler (**TensorLang**). It ensures that the code runs, memory is managed safely, and math is correct.
+### The Four Phases of MCTS:
+1.  **Selection**: Starting from the current baseline (root), the engine traverses the tree using the **UCB1** algorithm to balance exploitation (visiting high-performance branches) and exploration (visiting unknown branches).
+2.  **Expansion**: Once a leaf node is reached, the AI Oracle (DeepSeek) is prompted to generate 2 new mutations, creating new child nodes.
+3.  **Simulation (Evaluation)**: Each new mutation is compiled and executed in the **Isolated JIT Sandbox**. The resulting execution time is converted into a **Fitness Score**.
+4.  **Backpropagation**: The fitness score is propagated back up the tree, updating the `totalScore` and `visitCount` of all parent nodes to inform future selections.
 
-### 2. Neural AI (The Intuition)
-Think of this as **Large Language Models** (like Gemini/GPT) or your brain's creative side.
-*   **Strengths:** It handles ambiguity perfectly. It can look at messy code and say, "I know what you're trying to do, and I know a better way." It is flexible and creative.
-*   **Weaknesses:** It hallucinates. It might say `1 + 1 = 3` if it's feeling poetic. It cannot be trusted with safety-critical tasks on its own.
-*   **In NeuroJIT:** This is **Gemini**. It acts as the optimization expert, suggesting clever rewrites.
+## 2. Seed AI & Recursive Improvement
 
-## Why Combine Them?
+The "Seed AI" concept refers to the system's ability to modify its own underlying logic. 
 
-If you rely only on **Symbols**, you have a slow, rigid system that needs manual tuning for every new computer chip.
-If you rely only on **Neurons**, you have a fast but dangerous system that might crash your drone or delete your data.
+*   **Recursive Feedback**: As the system finds better mutations (e.g., tiling for cache locality), it includes these successes in the prompt history for the next iteration. This allows the LLM to "learn" which transformations are effective for the current hardware.
+*   **Hot-Swapping**: The engine doesn't just suggest optimizations; it applies them. By hot-swapping the active function pointers, the system evolves while it runs, approaching an "optimal" state for its specific environment and workload.
 
-**Neurosymbolic** means:
-1.  **The Neural Network** generates a clever idea ("Try tiling these loops by 64x64!").
-2.  **The Symbolic Compiler** verifies it ("Okay, let me check... yes, that is mathematically valid and safe. I will apply it.").
+## 3. Isolated Sandbox Execution
 
-NeuroJIT uses the **AI for the Strategy** and the **Compiler for the Safety**.
+Execution of AI-generated code is inherently risky. NeuroJIT mitigates this by:
+*   **LLVM Diagnostics**: Capturing compilation errors before they can crash the main process.
+*   **Separate Dylibs**: Loading each candidate into a unique JIT dynamic library to prevent symbol collisions.
+*   **Fitness Thresholds**: Only mutations that pass verification and demonstrate performance gain are ever considered for the main hot-swap.

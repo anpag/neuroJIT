@@ -20,15 +20,20 @@ int main(int argc, char** argv) {
     std::cerr << "FAILED TO CREATE JIT RUNNER: " << llvm::toString(runnerOrErr.takeError()) << std::endl;
     return 1;
   }
+  auto executionRunner = std::move(*runnerOrErr);
   std::cout << "[NeuroJIT] JIT Runner initialized." << std::endl;
 
   std::cout << "[NeuroJIT] Accessing JitContext..." << std::endl;
   auto& context = JitContext::getInstance();
-  std::cout << "[NeuroJIT] JitContext accessed." << std::endl;
+  context.registerRunner(executionRunner.get());
+  std::cout << "[NeuroJIT] JitContext accessed and Runner registered." << std::endl;
 
-  std::cout << "[NeuroJIT] Creating Mock Runner for hardware bypass..." << std::endl;
-  auto runner = ModelRunner::create("mock");
-  // Remove the llama->load() call if it causes issues for the mock
+  std::cout << "[NeuroJIT] Creating AI Runner..." << std::endl;
+  auto runner = ModelRunner::create("llama");
+  if (runner->load("tensorlang/runtime/models/deepseek-r1-32b-q4_k_m.gguf") != 0) {
+      std::cerr << "Failed to load DeepSeek model.\n";
+      return 1;
+  }
   context.setModelRunner(std::move(runner));
 
   std::string mlirPath = "tensorlang/benchmarks/matmul_pure.mlir";
@@ -55,9 +60,17 @@ int main(int argc, char** argv) {
 
   // Keep the main thread alive while the background MCTS threads explore
   std::cout << "[NeuroJIT] Main thread entering holding pattern. Engine is LIVE." << std::endl;
-  for (int i = 0; i < 5; ++i) {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+  
+  // Wait until the worker starts processing
+  while (!worker.isBusy()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
+  
+  // Wait until the worker finishes
+  while (worker.isBusy()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
   std::cout << "[NeuroJIT] Test run complete. Shutting down." << std::endl;
   context.shutdown();
   return 0;
